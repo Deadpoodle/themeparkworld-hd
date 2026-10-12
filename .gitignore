@@ -1,0 +1,35 @@
+# Game files — never in the repo
+testrun/
+testgame/
+Theme.Park.World/
+themeparkworld.zip
+Provenance.txt
+
+# Ghidra project (large binary database, regenerated)
+re/ghidra/
+
+# Ghidra export (regenerated from the project)
+re/ghidra-export/
+
+# Tier 0 disassembly cache (regenerated)
+re/*.asm
+
+# Release packaging output
+release/*.zip
+
+# Project log (kept local, per preferences)
+WIKI_LOG.md
+
+# Build output
+build/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.dll
+*.exe
+
+# IDE
+.vs/
+*.vcxproj.user
