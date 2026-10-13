@@ -185,7 +185,17 @@ void QueueClick(int cx, int cy) {
     LeaveCriticalSection(&g_uiLock);
 }
 
+// "wiggle": a cursor moving every frame, as a real mouse does (circles around
+// the screen centre), through the same UI_MouseMove the cursor tracker calls.
+volatile DWORD g_wiggleUntil;
+
 void RunUiStep() {
+    if (g_wiggleUntil && (LONG)(g_wiggleUntil - GetTickCount()) > 0) {
+        static int phase;
+        ++phase;
+        int vx = 1024 + (int)(600 * __builtin_cos(phase * 0.05)), vy = 768 + (int)(400 * __builtin_sin(phase * 0.05));
+        reinterpret_cast<short(__cdecl*)(int, int)>(game::UIMouseMove)(vx, vy);
+    }
     UiStep st;
     EnterCriticalSection(&g_uiLock);
     bool any = g_uiNext < g_ui.size();
@@ -222,7 +232,7 @@ void Type(const std::string& text) {
 // Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
 // timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
 // letter or digit, or a virtual-key code (0x..).
-enum class Kind { Key, Shot, Click, Type, AltF4, Hold };
+enum class Kind { Key, Shot, Click, Type, AltF4, Hold, Wiggle };
 struct Step {
     DWORD ms;
     Kind kind;
@@ -263,6 +273,9 @@ void ParseScript(const std::string& s) {
         for (char c : what) lower += (char)tolower((unsigned char)c);
         if (lower == "shot") {
             st.kind = Kind::Shot;
+        } else if (lower.rfind("wiggle ", 0) == 0) {
+            st.kind = Kind::Wiggle;
+            st.x = atoi(lower.c_str() + 7) * 1000;  // ms
         } else if (lower.rfind("hold ", 0) == 0) {
             char key[32] = "";
             int ms = 0;
@@ -344,6 +357,10 @@ DWORD WINAPI Worker(LPVOID) {
                     PostMessageA(g_hwnd, WM_KEYUP, s.vk, scan | 1 | (1u << 30) | (1u << 31));
                     break;
                 }
+                case Kind::Wiggle:
+                    g_log("headless: script wiggle %d ms", s.x);
+                    g_wiggleUntil = GetTickCount() + s.x;
+                    break;
                 case Kind::AltF4:
                     g_log("headless: script Alt+F4");
                     AltF4();
