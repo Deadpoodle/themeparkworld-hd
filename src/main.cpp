@@ -62,8 +62,9 @@ const char kDefaultIni[] =
     "; desktop's size, otherwise full screen is used), fullscreen (the original exclusive mode), or\r\n"
     "; window (the game's own window, not yet scalable)\r\n"
     "Mode=borderless\r\n"
-    "; Frame-rate cap. Above about 60 the camera and animations run too fast. 0 = no cap\r\n"
-    "MaxFPS=60\r\n"
+    "; Frame-rate cap, 0 = none (the original has none). Not needed so far; a cap of exactly 60\r\n"
+    "; clashed with the game's timing (about 4 picture updates a second)\r\n"
+    "MaxFPS=0\r\n"
     "\r\n"
     "[Compat]\r\n"
     "; 1 = answer the game's registry read (its language) itself, so it needs no registry keys\r\n"
@@ -219,7 +220,7 @@ void Init() {
     if (!window::Install(window::ParseMode(mode), size.w, size.h, headlessMode, Log) && headlessMode) ExitProcess(2);
     input::Install(IniInt("Input", "AltF4", 1) != 0, Log);
 
-    framecap::Install(IniInt("Display", "MaxFPS", 60),
+    framecap::Install(IniInt("Display", "MaxFPS", 0),
                       testMode || IniInt("Debug", "LogFPS", 0) || IniInt("Debug", "Profile", 0), Log);
 
     ApplyDebugPatches();
