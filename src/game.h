@@ -107,6 +107,22 @@ constexpr uintptr_t PauseObject = 0x786b68;
 constexpr uintptr_t Unpause = 0x409300;
 constexpr uintptr_t FrontEnd = 0xf82884;  // g_FrontEnd, 0 in a park
 
+// Texture quality and memory (Display_ApplyDetailSamOptions 0x44d8f0 and the
+// texture cache init 0x58d400):
+// - TEXTURE32 from the detail preset is read at 0x44db6a (`mov eax, [0x7858ac]`);
+//   0 (all stock presets) leaves textures in 16 bits (format 4444/1555). Forcing 1
+//   (8888) corrupts every texture (stripes, no text): tested, so it stays off.
+// - The cache budget = (256x256 textures the probe 0x58d1d0 could create, at
+//   most 256) * bytes per pixel << 16: 32 MB at 16 bits whatever the card has
+//   (log: "Amount of texture space safely allocated 2000000", hex). Big parks
+//   outgrow it (white textures). The community fix: << 19 (8x).
+constexpr uintptr_t Texture32Read = 0x44db6a;
+constexpr uint8_t Texture32ReadBytes[] = {0xa1, 0xac, 0x58, 0x78, 0x00};  // mov eax, [0x7858ac]
+constexpr uint8_t Texture32OnBytes[] = {0xb8, 0x01, 0x00, 0x00, 0x00};    // mov eax, 1
+constexpr uintptr_t TextureBudgetShift = 0x58d46d;
+constexpr uint8_t TextureBudgetShiftBytes[] = {0xc1, 0xe0, 0x10};  // shl eax, 16
+constexpr uint8_t TextureBudgetX8Bytes[] = {0xc1, 0xe0, 0x13};     // shl eax, 19
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

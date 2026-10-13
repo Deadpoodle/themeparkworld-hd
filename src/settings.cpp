@@ -102,6 +102,7 @@ const std::vector<Option>& Options() {
         {L"Fix: game clock", "Compat", "FixClock", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: intro movie hang", "Compat", "FixMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: full-screen present", "Compat", "FixPresent", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Fix: texture memory x8", "Compat", "TextureMemoryX8", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: focus at start-up", "Compat", "FixModeList", "1", {{"1", L"On"}, {"0", L"Off"}}},
     };
     return o;

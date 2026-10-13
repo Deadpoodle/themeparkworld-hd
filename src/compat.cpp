@@ -72,6 +72,15 @@ void Install(const Options& opt, void (*log)(const char*, ...)) {
 
     // Full-screen present by Blt asked for DDBLT_ALPHADEST (1) where it meant
     // DDBLT_WAIT; dgVoodoo2 refuses it and almost no frame is shown.
+    if (opt.textures32)
+        log("compat: 32-bit textures %s",
+            hook::Patch(game::Texture32Read, game::Texture32ReadBytes, game::Texture32OnBytes, 5) ? "on" : "patch FAILED");
+    if (opt.textureMemoryX8)
+        log("compat: texture cache budget x8 %s",
+            hook::Patch(game::TextureBudgetShift, game::TextureBudgetShiftBytes, game::TextureBudgetX8Bytes, 3)
+                ? "on"
+                : "patch FAILED");
+
     if (opt.present) log("compat: present Blt waits instead of DDBLT_ALPHADEST %s",
         hook::Patch(game::PresentBltFlags, game::PresentBltFlagsBytes, game::PresentBltWaitBytes, sizeof game::PresentBltWaitBytes) ? "on"
                                                                                                     : "patch FAILED");

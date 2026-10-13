@@ -217,6 +217,8 @@ void Init() {
     fixes.modeList = IniInt("Compat", "FixModeList", 1) != 0;
     fixes.movies = IniInt("Compat", "FixMovies", 1) != 0;
     fixes.present = IniInt("Compat", "FixPresent", 1) != 0;
+    fixes.textures32 = IniInt("Display", "Textures32", 0) != 0;  // off: corrupts every texture (tested)
+    fixes.textureMemoryX8 = IniInt("Compat", "TextureMemoryX8", 1) != 0;
     compat::Install(fixes, Log);
     display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
     display::DetectWrapper(g_dir.c_str(), Log);
