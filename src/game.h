@@ -17,6 +17,7 @@ constexpr uintptr_t IatMoveWindow = 0x6fd31c;
 constexpr uintptr_t IatGetAsyncKeyState = 0x6fd320;
 constexpr uintptr_t IatGetKeyState = 0x6fd324;
 constexpr uintptr_t IatGetFocus = 0x6fd328;
+constexpr uintptr_t IatSwapMouseButton = 0x6fd330;  // system-wide setting; the game sets and restores it
 constexpr uintptr_t IatShowWindow = 0x6fd368;
 constexpr uintptr_t IatGetForegroundWindow = 0x6fd370;
 constexpr uintptr_t IatMessageBoxW = 0x6fd378;

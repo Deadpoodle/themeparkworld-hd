@@ -112,6 +112,10 @@ int WINAPI h_MessageBoxW(HWND, LPCWSTR text, LPCWSTR caption, UINT type) {
     return Answer(type);
 }
 
+// The cursor set-up (0x634220) calls SwapMouseButton(FALSE) and restores it:
+// a system-wide setting a test copy must never touch. Report "not swapped".
+BOOL WINAPI h_SwapMouseButton(BOOL) { return FALSE; }
+
 // "TPWMutex" makes a second copy exit silently (0x45f666).
 HANDLE WINAPI h_CreateMutexA(LPSECURITY_ATTRIBUTES sa, BOOL owner, LPCSTR name) {
     if (name && strcmp(name, "TPWMutex") == 0) {
@@ -284,6 +288,8 @@ bool Install(const Options& opt, void (*log)(const char*, ...)) {
     decltype(&GetKeyState) unusedK;
     ok &= hook::Import(game::IatGetAsyncKeyState, &h_GetAsyncKeyState, &unusedA);
     ok &= hook::Import(game::IatGetKeyState, &h_GetKeyState, &unusedK);
+    decltype(&SwapMouseButton) unusedS;
+    ok &= hook::Import(game::IatSwapMouseButton, &h_SwapMouseButton, &unusedS);
     if (!g_visible) {
         ok &= hook::Import(game::IatShowWindow, &h_ShowWindow, &o_ShowWindow);
         ok &= hook::Import(game::IatSetWindowPos, &h_SetWindowPos, &o_SetWindowPos);
