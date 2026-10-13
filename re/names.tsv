@@ -1,14 +1,581 @@
-# Theme Park World HD — re/names.tsv
-# address	name	note	type
-# Confirmed names go here; re-run ApplyNames.java + ExportCaches.java after adding entries.
-0045a960	App_WinMain	WinMain; message pump + per-frame step	function
-00449ec0	Video_InitResolution	RESOLUTION setting / dev flags -> width 0x7a1968, height 0x7a1930	function
-00419710	Language_LoadResourcesAndFonts	string tables + one F4FB font tier chosen from RESOLUTION	function
-0041a5a0	Font_SelectResolutionTier	thiscall(width), ret 4; tier from real width	function
-00485a70	Font_GetFromActiveTier	font id 0..12 -> 0x78b54c + 24*(id+13*tier)	function
-00563460	DirectDraw_InitDisplay	fullscreen/windowed setup	function
-007a1968	g_ScreenWidth		global
-007a1930	g_ScreenHeight		global
-007858ec	g_ResolutionSetting	Resolution.sam RESOLUTION	global
-0078b534	g_FontTier	active font tier 0..3	global
-007a1a8c	g_DisplayFlags	bit0 fullscreen; default 0xc0e15 at 0x449e1c	global
+# Names for TP.exe (Theme Park World v2.0 noCD, image base 0x400000). Applied by
+# tools/ghidra/ApplyNames.java of the New Game+ skill, then tools/ghidra/TPWVtables.java; see re/deep-pass.md.
+#
+# address <TAB> name <TAB> note <TAB> type (optional)
+#   address  0x-prefixed hex. One line per address; sorted by address.
+#   name     Subsystem_Name for free functions, g_Name for globals, Class::vftable for vtables (this
+#            names the class; TPWVtables.java then names its unnamed slots Class::vfXX and makes them
+#            __thiscall), Function_What for labels inside a function (patch and call sites).
+#   note     what it does. [report] = the re/*.md report that established it; notes without a tag were
+#            added in the deep pass and start with a confidence letter (H read from the code, M
+#            mechanism clear but purpose inferred, L a guess). "(also: X [report])" records a different
+#            name another report gave the same address; the reports may still use those older names.
+#   type     a C prototype for functions, or a C type for globals ("int", "GameTimer"; structs are
+#            in re/types.tsv). Leave empty unless sure.
+#
+# Corrections folded in: 0x0046c0b0 is a CRT static initialiser, not an FPS hotkey, and 0x00729f00
+# a static-constructor table (frame-timing.md 9.2 was wrong); the timer object 0x00785970 layout is in
+# types.tsv (GameTimer), frame-timing.md 5.1 was partly wrong. Names inside .text that are data
+# (c_dfDIMouse 0x00679440, c_dfDIKeyboard 0x0067a460) are left out: ApplyNames would turn them into
+# functions.
+0x00401650	SAM_LoadFile	M: generic .sam settings-file loader (Resolution.sam, detail presets) [display-pipeline]
+0x004017a0	SAM_ParseFile	M: .sam parser: section/key table, entry types [display-pipeline]
+0x00402d70	Timer_GetGlobalGameTime	H: jmp Timer_GetGameTimeMs (this = g_GameTimer) [frame-timing]
+0x00402d80	Timer_GetRealTime	H: add ecx,0x50; jmp RealClock_GetTime: unscaled real-time clock embedded at g_GameTimer+0x50	int __fastcall Timer_GetRealTime(GameTimer *timer)
+0x00402d90	Timer_PauseAll	H: Timer_Pause + RealClock_Pause(+0x50); called by Game_Pause	void __fastcall Timer_PauseAll(GameTimer *timer)
+0x00402db0	Timer_ResumeAll	H: Timer_Resume + RealClock_Resume(+0x50); called by Game_Resume	void __fastcall Timer_ResumeAll(GameTimer *timer)
+0x00402dd0	Timer_TogglePauseAll	H: Timer_TogglePause + RealClock_TogglePause(+0x50); called by Game_TogglePause	void __fastcall Timer_TogglePauseAll(GameTimer *timer)
+0x00402df0	Timer_IsPaused_thunk	H: jmp Timer_IsPaused
+0x00402e00	Timer_WriteSavedTimes	M: writes savedTime +0x4c and RealClock saved +0x74 to a save stream (Stream_WriteChecked); from save module 0x004164c0
+0x00402e30	Timer_ReadSavedTimes	M: reads savedTime +0x4c and RealClock saved +0x74 (Stream_ReadChecked); from load module 0x00415270
+0x00402e60	Timer_SaveTimes	H: +0x4c = Timer_GetGameTimeMs, +0x74 = RealClock_GetTime(+0x50)	void __fastcall Timer_SaveTimes(GameTimer *timer)
+0x00402e80	Timer_RestoreTimes	H: Timer_SetFromSaved + RealClock_SetFromSaved(+0x50)	void __fastcall Timer_RestoreTimes(GameTimer *timer)
+0x00402ea0	Timer_BeginFixedStep	H: thiscall(fps), ret 4: if !+0x38: +0x38=1, +0x3c = Timer_GetUnpausedTime + +0x44, +0x40 = 1000/fps. Callers: Game_Init (32 fps = 31 ms steps, so the intro movies run on fixed steps) and Game_MainStateMachine state 10 (0x0054f464) every frame while g_CaptureEveryFrame is set (one 31 ms step per captured frame)	void __thiscall Timer_BeginFixedStep(unsigned int fps)
+0x00402ed0	Timer_EndFixedStep	H: if +0x38: +0x38=0, +0x44 = +0x3c - Timer_GetUnpausedTime (time stays continuous). Called in Game_MainStateMachine state 1 (front-end init, 0x0054e5ad) and every park frame while g_CaptureEveryFrame is 0 (0x0054f470)	void __fastcall Timer_EndFixedStep(GameTimer *timer)
+0x00402ef0	Timer_AdvanceFixedStep	H: if !Timer_IsPaused: +0x3c += +0x40 (one step per call). Per frame: Game_FrameCallback 0x0054e2f7 -> 0x0040f220 -> Game_FrameTimerStep 0x00409260 -> here	void __fastcall Timer_AdvanceFixedStep(GameTimer *timer)
+0x00402f10	Timer_GetTime	H: +0x38 ? +0x3c (fixed-step time) : Timer_GetUnpausedTime + +0x44	int __fastcall Timer_GetTime(GameTimer *timer)
+0x00402f30	Clock_Init	H: zeroes +0 (last sample) and the double +8 (accumulated)
+0x00402f40	RealClock_Sample	H: unscaled clock: +8 += now - +0 (Platform_GetGameTimeMs), +0 = now; returns (int)+8 PATCHED: same single-precision freeze as Timer_UpdateAccumulatedTime; compat.cpp FixClock	int __fastcall RealClock_Sample(RealClock *clock)
+0x00402f80	RealClock_Pause	H: if !+0x18: +0x10 = RealClock_Sample, +0x18 = 1	void __fastcall RealClock_Pause(RealClock *clock)
+0x00402fa0	RealClock_Resume	H: if +0x18: +0x14 += sample - +0x10, +0x18 = 0	void __fastcall RealClock_Resume(RealClock *clock)
+0x00402fd0	RealClock_TogglePause	H: pause or resume	void __fastcall RealClock_TogglePause(RealClock *clock)
+0x00403010	RealClock_GetUnpausedTime	H: paused ? +0x10 - +0x14 : sample - +0x14	int __fastcall RealClock_GetUnpausedTime(RealClock *clock)
+0x00403030	Timer_Pause	H: if !+0x30: +0x28 = Timer_UpdateAccumulatedTime, +0x30 = 1	void __fastcall Timer_Pause(GameTimer *timer)
+0x00403050	Timer_Resume	H: if +0x30: +0x2c += now - +0x28, +0x30 = 0	void __fastcall Timer_Resume(GameTimer *timer)
+0x00403080	Timer_TogglePause	H: pause or resume (+0x28/+0x2c/+0x30)	void __fastcall Timer_TogglePause(GameTimer *timer)
+0x004030c0	Timer_IsPaused	H: returns +0x30	int __fastcall Timer_IsPaused(GameTimer *timer)
+0x004030d0	Timer_GetUnpausedTime	H: paused ? +0x28 - +0x2c : Timer_UpdateAccumulatedTime - +0x2c	int __fastcall Timer_GetUnpausedTime(GameTimer *timer)
+0x004030f0	RealClock_WriteSaved	M: Stream_WriteChecked(+0x24)
+0x00403120	RealClock_ReadSaved	M: Stream_ReadChecked(+0x24)
+0x00403150	RealClock_GetTime	H: RealClock_GetUnpausedTime + +0x20	int __fastcall RealClock_GetTime(RealClock *clock)
+0x00403160	RealClock_SetFromSaved	H: +0x20 = +0x24 - RealClock_GetUnpausedTime	void __fastcall RealClock_SetFromSaved(RealClock *clock)
+0x00403180	Timer_WriteSaved	M: Stream_WriteChecked(+0x4c)
+0x004031b0	Timer_ReadSaved	M: Stream_ReadChecked(+0x4c)
+0x004031e0	Timer_GetGameTimeMs	H: Timer_GetTime + +0x48. The game time every system reads (fixed-step while +0x38 is set, else scaled real time) [frame-timing]	int __fastcall Timer_GetGameTimeMs(GameTimer *timer)
+0x004031f0	Timer_SetFromSaved	H: +0x48 = +0x4c - Timer_GetTime	void __fastcall Timer_SetFromSaved(GameTimer *timer)
+0x004032b0	Timer_Construct	H: Clock_Init, then speed +0x20 = 1.0 (no direct callers: static init) [frame-timing]	GameTimer * __fastcall Timer_Construct(GameTimer *timer)
+0x00403390	Timer_GetSpeedMultiplier	H: returns the double +0x20 [frame-timing]	double __fastcall Timer_GetSpeedMultiplier(GameTimer *timer)
+0x004033a0	Timer_UpdateAccumulatedTime	H: +0x18 += (now - +0x10) * speed +0x20, +0x10 = now; returns (int)+0x18 (scaled real time) [frame-timing] PATCHED: under Direct3D the x87 FPU is in single precision, so once +0x18 (ms since boot) passes 2^24 short frames round away and the clock stops; compat.cpp runs it at 53-bit precision (FixClock)	int __fastcall Timer_UpdateAccumulatedTime(GameTimer *timer)
+0x004053c0	Cheat_SetEnabled	sets cheat flag [0x00fb352a] [startup-and-switches]
+0x00405560	Cheat_IsEnabled	returns byte [this+0xa] (this=0x00fb3520) [startup-and-switches]
+0x00405630	CmdLine_Split	static ctor (obj 0x008787a0): splits GetCommandLineA at " /" [startup-and-switches]
+0x00405710	ErrorReporter_Set	this=0x00785de8: pending error code + optional text [startup-and-switches]
+0x00405750	ErrorReporter_Show	MessageBoxW "Theme Park World" if language loaded [startup-and-switches]
+0x00405b90	ErrorReporter_MapEngineError	engine HRESULT (0xb0754xxx) to error-string id [startup-and-switches]
+0x00407e00	Level_ApplyQuickLoad	M: loads the *.TPWS given on the command line at level start ("QuickSave Loaded") [startup-and-switches]
+0x00408470	Resources_MountAll	M: mounts the data folders/WADs on the first idle tick (data\movies with CD fallback) [startup-and-switches]
+0x00409260	Game_FrameTimerStep	H: fastcall(game): Timer_AdvanceFixedStep(g_GameTimer); [0x007477e4] = app-active bit; quit (g_AppFlags|=2) if game+0x18
+0x004092a0	Game_Pause	H: thiscall(game, showUi, keepSound): if +0x3c==1: +0x1c=1, Timer_PauseAll, sound pause. Object 0x00786b68 (EscMenu_Show pauses through it) Called by WM_ACTIVATEAPP(FALSE) in a park (0x0046b74c) with no matching resume; input.cpp ResumeOnFocus
+0x00409300	Game_Resume	H: if +0x3c==1: +0x1c=0, Timer_ResumeAll
+0x00409350	Game_TogglePause	H: P key (handler 0x0040bf70); toggles +0x1c and Timer_TogglePauseAll
+0x0040bf70	Key_TogglePause	M: system group P -> Game_TogglePause [startup-and-switches]
+0x0040bf90	Debug_QuickSave	Alt+S quick save [startup-and-switches]
+0x0040c040	Debug_QuickLoad	Alt+L quick load [startup-and-switches]
+0x0040c120	Key_RotateCameraCW	M: game group ',' (+90 deg) [startup-and-switches]
+0x0040c150	Key_RotateCameraCCW	M: game group '.' (+270 deg) [startup-and-switches]
+0x0040c180	Key_GameMenu	M: game group Esc [startup-and-switches]
+0x0040c3b0	Key_ZoomOut	M: Num- [startup-and-switches]
+0x0040c3c0	Key_ZoomIn	M: Num+ [startup-and-switches]
+0x0040c3d0	Key_ZoomReset	M: Num* [startup-and-switches]
+0x0040c450	Cheat_AddMoney	L: cheat group, uses 10000 [startup-and-switches]
+0x0040c470	Key_Screenshot	H: F8 -> Debug_SaveScreenshotTGA [startup-and-switches]
+0x0040c480	Key_ToggleFrameCapture	H: Ctrl+Shift+Alt+F8 -> Debug_SetFrameCapture (TGA every frame) [startup-and-switches]
+0x0040c5d0	Key_CtrlH_ToggleUiFlag	L: Ctrl+H toggles g_Config+0x36 (0x0078d90e), HUD hide? [startup-and-switches]
+0x0040c830	Key_CycleRenderMode	L: Ctrl+F5 cycles g_EngineFlags bits 2-3 [startup-and-switches]
+0x0040c900	Keybind_DispatchKeyDown	matches (key,mods) in a group and calls handler [startup-and-switches]
+0x0040c990	Keybind_DispatchKeyUp	key-up counterpart [startup-and-switches]
+0x0040cb50	Keybind_DisableGroup	clears group enabled and entry pressed flags [startup-and-switches]
+0x0040cb80	Keybind_InitGroups	creates system/game/camera/cheat/coaster/shortcuts keybind groups [startup-and-switches]
+0x0040cf60	Keybind_EnableAllGroups	enables all keybind groups [startup-and-switches]
+0x0040cfa0	Keybind_DisableAllGroups	disables all keybind groups [startup-and-switches]
+0x0040f000	CmdLine_ParseSwitches	/v /version /quickload /nodebug /noload /SAVEDEBUG /flmouse /bwcursor, *.TPWS [startup-and-switches]
+0x0040f220	Game_FrameTimerStep_thunk	H: calls Game_FrameTimerStep; called at 0x0054e2f7 in Game_FrameCallback
+0x00415270	SaveGame_LoadModules	H: loads the savegame modules in order (UI, AdvisorScoring, Cheat, Sound, Advisor, Coasters, Camera, RSSE, FlyingRides, TrackRides, Ridesystem, GameSystem, VanillaTime, Clock, MsgCntr, Particles, Scripts, World, GActionRec); "<name>: loaded %d bytes"
+0x004164c0	SaveGame_SaveModules	H: writes the same modules ("<name>: saved %d bytes")
+0x00419710	Lang_LoadTextTables	loads Data\Language\<lang> string tables and fonts; sets [0x0078b530]=1 [startup-and-switches] (also: Language_LoadResourcesAndFonts [text-rendering])
+0x0041a5a0	Font_SelectResolutionTier	Sets active font resolution tier DAT_0078b534 based on screen width [text-rendering]
+0x0041a5f0	Language_UnloadFonts	Releases loaded font resources across all 4 resolution tiers [text-rendering]
+0x0041cc20	File_FindLocalThenCD	M: file lookup: local folder (0x0041cc40), then CD root (0x0041cd50) [startup-and-switches]
+0x0041cc40	File_FindLocal	M [startup-and-switches]
+0x0041cd50	File_FindOnCD	M [startup-and-switches]
+0x00423690	Config_SetDefaults	this=0x0078d8d8 config defaults (3D=1, res=1, detail=1) [startup-and-switches]
+0x00423740	Config_ComputeChangeLevel	+0x94: 1 audio, 2 restart (3D/res/videocard) [frontend-menus]
+0x004237f0	Config_Apply	restart popup (GetUIText 0x193), writes save\config.tcf [frontend-menus]
+0x00423ad0	Config_Restore	restores from +0x3c [frontend-menus]
+0x00423b00	Config_Backup	copies 15 dwords to +0x3c [frontend-menus]
+0x00423b60	Config_SetResolution	0x0078d8dc = 0..2 [frontend-menus]
+0x00423ba0	Config_SetDetail	0x0078d8e0 [frontend-menus]
+0x00423bc0	Config_ApplyDetailLive	M: applies a detail-level change without restart (from Config_ComputeChangeLevel) [frontend-menus]
+0x00423dd0	Config_ApplyVolumes	applies sound/music/speech/movie enables and volumes [startup-and-switches]
+0x004242c0	Config_SerializeTcf	config.tcf body read(0)/write(1): 3D, res, detail, VideoCard, MovieVolume, SoundQuality [startup-and-switches]
+0x00424560	DialogTcf_Serialize	dialog.tcf body: displayFlags, debugFlags, unused, CURRENTTheme, DEBUGGuardUInts, TextureCacheSize [startup-and-switches]
+0x00424820	Config_SaveTcf	writes save\config.tcf with version 1 [startup-and-switches]
+0x00424930	Config_LoadTcf	loads save\config.tcf (version dword must be >=1) [startup-and-switches]
+0x00424a60	DialogTcf_Load	loads dialog.tcf (version >=2) into 0x0078d950..; returns 1 on success [startup-and-switches]
+0x00424bb0	Config_RestartOkCb	FE: g_FrontEnd+0x14=3; park: save and quit [frontend-menus]
+0x00424c10	Config_RestartExitCb	M: "exit" callback of the restart message box [frontend-menus]
+0x0042a500	Key_CameraMoveA	M: camera group movement handler [startup-and-switches]
+0x0042a520	Key_CameraMoveB	M: camera group movement handler [startup-and-switches]
+0x0042b1c0	Camera_Update	M: camera update (reads g_AppFlags&8 at 0x0042b5bb, edge scroll?) [mouse-input]
+0x00443340	Camera_UpdatePosition	Per-frame camera position/angle update (unscaled by delta-time) [frame-timing]
+0x00449df0	Config_InitDisplayFlags	DAT_007a1a8c=0xc0e15 (bit0 fullscreen); dialog.tcf overrides and sets DAT_0078d968 [startup-and-switches] (also: Config_InitDefaultDisplayOptions [display-pipeline])
+0x00449e1c	Config_InitDisplayFlags_DefaultStore	H: mov [0x7a1a8c],0xc0e15; HD patch edits +6 (windowed) and +8 (32 bpp) [src/game.h DisplayFlagsInit]
+0x00449ec0	Video_InitResolution	Sets DAT_007a1968 / DAT_007a1930 and initializes video mode [text-rendering] (also: Display_ApplyResolutionSetting [display-pipeline])
+0x0044a0ed	Video_InitResolution_Res7Width	H: mov [0x7a1968],0x800 (RESOLUTION 7); HD patch writes the width at +6 [src/game.h Res7WidthImm]
+0x0044a0f7	Video_InitResolution_Res7Height	H: mov [0x7a1930],0x600; height at +6 [src/game.h Res7HeightImm]
+0x0044d8f0	Display_ApplyDetailSamOptions	applies GameOptions .sam values to render flags [startup-and-switches]
+0x0044db4f	Display_ApplyDetailSamOptions_Render32Off	H: and eax,0xffdfffff (RENDER32 0); HD patch -> or eax,0x200000 [src/game.h Render32Off]
+0x0044dc60	Display_LoadDetailSam	loads low/med/high .sam by flag 0x800/0x1000/0x2000 [startup-and-switches]
+0x0044dd50	Display_SelectRenderer_Debug	Debug renderer selection branch for dialog.tcf mode [display-pipeline]
+0x0044de20	Display_SelectRenderer	Chooses between Direct3D (1) and Software (4) via DAT_0078d8d8 [display-pipeline]
+0x0044df20	Display_InitRendererWithFallback	Attempts Direct3D init; on failure falls back to Software renderer [display-pipeline]
+0x0044e080	Display_CreateGameWindowAndInit	Registers window class, calls CreateWindowExA, initiates display setup [display-pipeline]
+0x0044e410	Animation_UpdateModels	Updates model animation states using delta-time (`DAT_007b497c`) [frame-timing]
+0x0044e550	thunk_BDEngine_Present	Thunk calling BDEngine_Present (0x00583730) [display-pipeline]
+0x0045a960	App_WinMain	WinMain entry point; manages PeekMessage message pump [frame-timing] (also: Main_GameLoop [display-pipeline])
+0x0045ab6f	App_WinMain_CallLoadTextTables	H: call Lang_LoadTextTables (ecx=0x78b530) [src/game.h CallLoadTextTables]
+0x0045abbb	App_WinMain_CallVideoInitResolution	H [src/game.h CallVideoInitResolution]
+0x0045abcc	App_WinMain_CallFontSelectTier	H: call Font_SelectResolutionTier [text-rendering]
+0x0045f640	Startup_RegistryAndMutexCheck	Language registry check then CreateMutexA "TPWMutex"; silent exit on failure [startup-and-switches]
+0x0045f6b0	Startup_CheckRegistryLanguage	HKLM\software\Bullfrog Productions Ltd\Theme Park World, DWORD "Language" must exist [startup-and-switches]
+0x0045f7a0	Startup_CDCheck	wrapper calling CD_FindDiscByLabel [startup-and-switches]
+0x00467a80	RideSign_GenerateTexture	Generates composite sign texture with sign1.tga/sign2.tga and rendered text [text-rendering]
+0x004682b0	RideSign_CreateForRide	Sets up sign generation for a ride from Data\Fonts [text-rendering]
+0x00468420	RideSign_UpdateRenamedRide	Updates sign texture when a ride is renamed [text-rendering]
+0x0046b600	WndProc_HandleInput	mouse/keyboard/activate message handling, keybind dispatch [startup-and-switches] (also: App_WndProc [frame-timing])
+0x0046bcb0	WndProc	window procedure; WM_DESTROY posts quit, else WndProc_HandleInput [startup-and-switches]
+0x0046c0b0	StaticInit_FpsVars	CRT static initialiser: [0x007b05cc]=1, FPS flag [0x007b05d0]=0 (not a hotkey) [startup-and-switches] (also: Debug_ToggleFpsCounter [frame-timing])
+0x0046c0d0	Debug_RenderFps	Formats and draws `FPS: %.4g` overlay [frame-timing]
+0x00473440	Camera_UpdateTimeDelta	Computes per-frame delta time (`DAT_007b497c`) in seconds [frame-timing]
+0x0047e7d0	UI_InitColourCursor	creates colour cursor sprite, clip rect, sends engine msgs 6/7, sets DAT_007b4b88=1 [mouse-input]
+0x0047e9d0	Input_PostActivate	engine msg 4 {active} from WM_ACTIVATEAPP (ShowCursor + re-Acquire) [mouse-input]
+0x0047eaa0	UI_IsDInputCursor	returns DAT_007b4b88; true = WndProc ignores WM_MOUSE*, UI_Update polls DirectInput [mouse-input]
+0x0047f020	MessageBox	cdecl(desc*, t1,cb1, t2,cb2, t3,cb3, flag); 1 b_okay, 2 b_exit [frontend-menus]
+0x00485780	UI_GlobalMsgObserver	DAT_00faa5fc: sees every dispatched widget message [mouse-input]
+0x00485a70	Font_GetFromActiveTier	Returns font struct for font ID (0..12) from active resolution tier [text-rendering]
+0x00485aa0	PlaySfx	cdecl(id); 0xc1 menu click [frontend-menus]
+0x00485b00	GetUIText	cdecl(id) -> shared buffer 0x007ba058 [frontend-menus]
+0x00485d20	UI_SetTitleText	cdecl(parent, childId, text); single static renderer 0x007c2118, font 5 [frontend-menus] (also: UI_SetWidgetTextAndFont [text-rendering])
+0x004862a0	UI_RestoreFocus	gives key focus back to the active HUD / FE root [frontend-menus]
+0x00486c70	UI_DInputButtonCallback	(code 0xf0..f2, pressed, ?, x, y) px -> virtual, calls UI_MouseButtonDown/Up [mouse-input]
+0x00489ca0	UI_InitCursorAndInput	cursor set-up; creates DirectInput mouse when colour cursor enabled [startup-and-switches]
+0x0048a580	UI_Update	per-frame UI: queue dispatch; in DirectInput mode polls cursor tracker and button events [mouse-input]
+0x0048b2a0	TextMenu_ItemProcHover	hover fade teal->white, then ItemDefProc [frontend-menus]
+0x0048b6a0	EscMenu_ParkProc	0x100001 ids 0..0x19 [frontend-menus]
+0x0048bc50	SelectNewPlayer_ConfirmCb	saves player, FE_PlayerSelect_Build [frontend-menus]
+0x0048bd40	EscMenu_FrontEndProc	0x100001 ids 9..0xf; Esc closes [frontend-menus]
+0x0048c150	EscMenu_BuildPark	Load/Save/.../Options(5)/Resume/Quit [frontend-menus]
+0x0048c600	EscMenu_BuildFrontEnd	online/offline, Options(0xb), Select New Player, Resume, Quit [frontend-menus]
+0x0048c830	EscMenu_Show	(frontEnd): build into g_EscMenu 0x7c2534 and show [frontend-menus]
+0x00491920	TextRenderer_Ctor	thiscall(0) on new(0x1a4), vtable 0x006ff530 [frontend-menus]
+0x004929f0	TextMenu_MeasureText	M: text extent for TextMenu_AddItem [frontend-menus]
+0x00492d20	Widget_SetYellow	cdecl(w): colour 0xea,0xef,0x66 [frontend-menus]
+0x00492d80	TextMenu_ItemDefProc	0x10006 -> sfx 0xc1, 0x100001(id) to container [frontend-menus]
+0x00492e40	TextMenu_Ctor	0x14-byte object [frontend-menus]
+0x00492e60	TextMenu_Destroy	UI_SendMsg(container,4) [frontend-menus]
+0x00492e80	TextMenu_Init	thiscall(menuProc,itemProc): full-screen "lolight" container [frontend-menus]
+0x00492f60	TextMenu_AddItem	thiscall(y,text,id,font,r,g,b) ret 0x1c, returns next y [frontend-menus]
+0x00493130	TextMenu_Show	thiscall(bool): attach on top, take focus [frontend-menus]
+0x004931b0	TextMenu_Hide	detach, release focus, UI_RestoreFocus [frontend-menus]
+0x004993e0	UI_NameDialog_CheckCheatCode	unlocks cheats when fields are "Kevin the" / "Cosmic Cow" [startup-and-switches]
+0x004a2bf0	Options_Proc	0x100 buttons (-1 OK, -2 cancel), 0x800/0x801 sliders [frontend-menus]
+0x004a2e90	Options_SliderChanged	resolution/detail/volume sliders -> config + label [frontend-menus]
+0x004a3480	Options_ToggleChanged	toggle buttons [frontend-menus]
+0x004a3a30	Options_Open	Game Options screen, layout 0x752f30, g_Options 0x7cb2fc [frontend-menus]
+0x004a4580	Options_Close	UI_SendMsg(g_Options,4) [frontend-menus]
+0x004a5fc0	PlayerSelect_RootProc	msg 5 -> close; 0x14 clears g_PlayerSelect [frontend-menus]
+0x004a6000	PlayerSelect_SlotProc	hover colours; 0x10006 load player / new player; 0x100 delete [frontend-menus]
+0x004a61d0	PlayerSelect_QuitProc	hover red; 0x10006 -> MessageBox(GetUIText(9)) [frontend-menus]
+0x004a6290	PlayerSelect_QuitConfirmCb	calls FrontEnd_RequestQuit [frontend-menus]
+0x004a62b0	PlayerSelect_RefreshSlots	slot text = player name or GetUIText(0x1a5) [frontend-menus]
+0x004a6580	FE_PlayerSelect_Build	main menu: 4 player slots + Quit Game, layout 0x753c68, g_PlayerSelect 0x7cb3f8 [frontend-menus] WRAPPED by settings.cpp at 0x005d5bec/0x0048bc5d to add the HD Settings sign
+0x004a6a50	FE_PlayerSelect_Close	destroys panel, re-shows FE root, enters island [frontend-menus]
+0x004a6e40	FE_NewPlayerDialog_Open	player name entry dialog [frontend-menus]
+0x004b90f0	FE_EnterIsland	M: continues from player select into the island [frontend-menus]
+0x00519060	Render_InterpolateEntities	Distributes sub-tick interpolation fraction to all active entities [frame-timing]
+0x0051b010	Video_PlayTGQFrame	M: starts a movie (not one frame): checks the surfaces, colour-fills both (retry loops FillRetry1/2), TGQ_Open into g_MovieHandle, TGQ_SetVolume from the movie volume; Game_MainStateMachine states 5-8 then poll Movie_IsFinished [display-pipeline]
+0x0051b207	Video_PlayTGQFrame_FillRetry1	H: jne back to a failed colour-fill Blt (forever); HD compat patch -> nop nop [src/game.h MovieFillRetry1]
+0x0051b240	Video_PlayTGQFrame_FillRetry2	H: twin of FillRetry1 [src/game.h MovieFillRetry2]
+0x0051b300	Movie_IsFinished	M: Sleep(10), then TGQ_IsPlaying(g_MovieHandle); clears g_MoviePlaying when done (intro states)
+0x0051b350	Movie_Stop	M: stops and releases the movie and its two surfaces (Game_MainStateMachine, WndProc_HandleInput)
+0x0051b3c0	Movie_SetVolume	M: movie volume (config MovieVolume *1023/100) [startup-and-switches]
+0x0051b3e0	Movie_Shutdown	M: Movie_Stop and g_MoviesEnabled = 0
+0x0051b660	Sound_Init	H: "SOUND: Tried to initialise sound system twice"; (device, enable = g_DisplayFlags & 0x400) from Game_Init
+0x0051b7c0	Sound_Shutdown	M: releases the sound device; "SOUND: More malloc than free"
+0x0051bb60	Sound_SetMasterVolume	L: Game_Init passes 100
+0x0051bb80	Sound_SetMusicVolume	M: Options slider 0x1d4da (g_Config.musicVolume)
+0x0051bba0	Sound_SetSfxVolume	M: Options slider 0x1d4d8 (g_Config.sfxVolume)
+0x0051bbc0	Sound_SetSpeechVolume	M: Options slider 0x1d4dc (g_Config.speechVolume)
+0x0051bcf0	Sound_PauseAll	M: posts SoundCmdPause (Game_Pause, Game_TogglePause, WM_ACTIVATEAPP)
+0x0051bd30	Sound_ResumeAll	M: posts SoundCmdResume
+0x0051c1d0	Sound_SetListener	M: (pos xyz, two more vectors) every park frame from the camera (g_CameraEye, interpolated unless g_CameraFlags & 0x16); the front end passes (0,0,-50), (0,0,1), (0,1,0)
+0x00520130	Sim_TickSimulation	M: per-31 ms tick; runs in the front end (state 2) as well as the park (state 10), over a table of 0x140-byte objects at 0x0080cefc: probably not the whole park simulation [frame-timing]
+0x00546280	Render_InterpolateThing	M: blends one entity between ticks [frame-timing]
+0x0054dcf0	Game_Init	H: game init on the first idle tick: Timer_BeginFixedStep(32), CmdLine_ParseSwitches, Keybind_InitGroups, sound and UI init (UI_InitCursorAndInput at 0x0054deb3) [startup-and-switches]
+0x0054df20	Movie_PlayIntro1	plays bf.tgq, positions with ScreenToClient when windowed [mouse-input]
+0x0054e070	Movie_PlayIntro2	plays a random ride movie, same positioning [mouse-input]
+0x0054e2b0	Game_FrameCallback	M: per-frame tail registered with Engine_SetFrameCallback from Game_MainStateMachine: Animation_UpdateModels(3), Game_FrameTimerStep, then frame timing into 0x0087868c. Was not a function in the first export
+0x0054e360	Game_MainStateMachine	state DAT_0087906c: 1 FE init, 2 FE run, 3 FE exit, 5-8 movies, 10 park [frontend-menus] (also: Game_ProcessFrameTick [display-pipeline])
+0x00550460	Debug_SaveScreenshotTGA	F8: writes next free Scr%05ld.tga [startup-and-switches]
+0x00550510	Debug_SetFrameCapture	sets DAT_00878128 (TGA every frame), Ctrl+Shift+Alt+F8 [startup-and-switches]
+0x0055e570	Sys_CalibrateRdtsc	Calibrates CPU RDTSC cycles against `timeGetTime` [frame-timing]
+0x005632b0	DirectDraw_CreateContext	Allocates 0x790-byte DirectDraw context structure and invokes init [display-pipeline]
+0x005633a0	DirectDraw_ReleaseContext	Releases DirectDraw context and all associated surfaces [display-pipeline]
+0x005633e0	DirectDraw_EnumerateCallback	DirectDrawEnumerateA callback collecting device GUIDs [display-pipeline]
+0x00563460	DirectDraw_InitDisplay	Configures fullscreen/windowed cooperative levels, SetDisplayMode, surfaces [display-pipeline]
+0x005640a0	DirectDraw_ReleaseSurfaces	Releases primary surface, back buffer, clipper, and DDraw interfaces [display-pipeline]
+0x00564210	DirectDraw_FlipBuffers	Executes IDirectDrawSurface4::Flip or Blt based on display mode [display-pipeline]
+0x00564275	DirectDraw_FlipBuffers_BltPath	H: full screen + [0x8bd508] bit0 presents by Blt [WIKI_LOG]
+0x0056427e	DirectDraw_FlipBuffers_BltFlags	H: flags ~[0x8bcbc8]&1 = DDBLT_ALPHADEST (bug); HD patch -> DDBLT_WAIT [src/game.h PresentBltFlags]
+0x005645e0	FallbackLog_Write	appends to fallback.txt [startup-and-switches]
+0x00564650	EngineDebug_Log	Diagnostic logger writing graphics errors to `enginedebug.txt` [frame-timing]
+0x00565240	Render_BeginPrim	(type, prim, fvf, flags, texture) [sky-2048]
+0x00565590	Render_FlushPrim	project, snap, sort or draw [sky-2048]
+0x005658c0	Render_EndPrim	[sky-2048]
+0x00565960	Render_ClipAddIndices	outcodes + homogeneous clip [sky-2048]
+0x00566fa0	D3D_BeginScene	[sky-2048]
+0x00567010	D3D_EndScene	[sky-2048]
+0x00567620	D3D_ApplyStateFlags	engine flag word -> render/texture-stage states [sky-2048]
+0x00567ad0	D3D_SetFog	fog colour, table mode, start, end [sky-2048]
+0x005680b0	D3D_DrawPrim	DrawIndexedPrimitive [sky-2048]
+0x00569d80	VThunk_AdjustThis_424ec0	H: sub ecx,[ecx-4]; jmp 0x00424ec0: this-adjusting thunk shared by several vtables
+0x0056a770	DirectX_GetErrorMessage	Translates DirectDraw/Direct3D HRESULTs and engine error codes to strings [display-pipeline]
+0x00572c40	Direct3D_CreateContext	Allocates 0x22c-byte Direct3D context and calls Direct3D_Init [display-pipeline]
+0x00572d50	Direct3D_Shutdown	Releases Direct3D device, viewport, and Z-buffer [display-pipeline]
+0x00572dd0	D3D_SetupViewport	full W x H viewport [sky-2048]
+0x00573080	Direct3D_Init	Initializes IDirect3D3, Z-buffer surface, HAL device, viewport, render states [sky-2048]
+0x00573660	D3D_EnumZBufferCallback	takes the first 16-bit format [sky-2048] (also: Direct3D_EnumZBufferCallback [display-pipeline])
+0x00573740	D3D_ClearViewport	Viewport3::Clear2 TARGET|ZBUFFER, colour [0x8bd47c] if flags&0x4002000 [sky-2048]
+0x00573870	D3D_ClearViewport_thunk	vtable 0x701630[0], jmp 0x573740 [sky-2048]
+0x00573890	Direct3D_PresentThunk	IRenderer vtable slot +4 thunk tail-calling DirectDraw_FlipBuffers [display-pipeline]
+0x00573960	SoftwareRenderer_CreateContext	Allocates 0x18-byte Software Renderer context and initializes rasterizer [display-pipeline]
+0x00573b30	SoftwareRenderer_Shutdown	Frees software renderer framebuffer memory and context [display-pipeline]
+0x00573b90	SoftwareRenderer_Init	Allocates 32-bit framebuffer (Width*Height*4) and sets up rasterizer state [display-pipeline]
+0x00573cc0	SoftwareRenderer_Present	Locks DirectDraw back buffer, copies software pixels, unlocks, and flips [display-pipeline]
+0x00573dbd	SoftwareRenderer_Present_CallCopyClear32	H: call SoftRender_CopyClear32; HD patch wraps it [src/game.h CallSoftCopyClear32]
+0x00573ee0	SoftwareRenderer_PresentThunk	IRenderer vtable slot +4 thunk calling SoftwareRenderer_Present [display-pipeline]
+0x00576260	Engine_SetFrameCallback	H: thiscall(fn): [this+0x78] = fn (Game_MainStateMachine passes Game_FrameCallback)
+0x00576a00	World_RenderView	clear, fog, BeginScene, sky/land/objects, EndScene [sky-2048]
+0x00576c78	World_RenderView_CallSkyRender	H: call Sky_Render (view bit 0x10) [sky-2048]
+0x00576ec0	World_RenderFrame	all views; stereo modes via flags bits 2-3 [sky-2048]
+0x00579330	Xform_TransformX87	vtable +4 of 0x0087b1d8, to clip space [sky-2048]
+0x00579690	Xform_ProjectX87	vtable +0xc, perspective divide to screen [sky-2048]
+0x0057cb10	Engine_DrawDebugText	M: engine font text, used by Debug_RenderFps [frame-timing]
+0x00582eb0	BDEngine_SetDisplayMetrics	Stores width, height, aspect ratio, and half-extents in DAT_008bcbc8 [display-pipeline]
+0x005835c0	System_LogDiagnostics	Logs clock frequency, RAM, renderer ID, and build version [display-pipeline]
+0x005836d0	BDEngine_InitSelectedRenderer	Calls Direct3D_CreateContext (1) or SoftwareRenderer_CreateContext (4) [display-pipeline]
+0x00583700	BDEngine_ShutdownSelectedRenderer	Calls Direct3D_Shutdown (1) or SoftwareRenderer_Shutdown (4) [display-pipeline]
+0x00583720	BDEngine_BeginScene	IRenderer vtable slot +0 (Clear / BeginScene) [display-pipeline]
+0x00583730	BDEngine_Present	H: present: returns at once unless GetFocus()==window; frame counter 0x008bcc40; renderer vtable +4 (Render_Flip in frame-timing.md is the same function) [display-pipeline] (also: Render_Flip [frame-timing])
+0x005852b0	Sky_LoadTextures	thiscall(path): sky.tga->+0x1fd0, sky_rgb.tga->+0x1fd4 (sampled then freed), sky_cyl.tga->+0x1fd8 [sky-2048]
+0x00585720	Sky_BuildMesh	16x16 cloud grid +0x360, cylinder 72 verts +0, indices +0x21fc/+0x2c88 [sky-2048]
+0x00585ce0	Sky_SampleColours	sky_rgb texels -> 16x16 vertex colours +0xf60 [sky-2048]
+0x00585e20	Sky_FreeTextures	releases +0x1fd0/+0x1fd4/+0x1fd8 [sky-2048]
+0x00585f10	Sky_Update	cloud scroll; view bit 0x400 [sky-2048]
+0x005860d0	Sky_DrawObjects	sun/billboards (flag 0x400000); sets TL z 1.0 [sky-2048]
+0x005863c0	Sky_Render	translucent cloud layers + cylinder, z=1.0, zwrite off; view bit 0x10 [sky-2048]
+0x00586d70	Splash_AtexitCleanup	Cleanup routine registered via atexit; enforces 3,000 ms splash delay [frame-timing]
+0x00587130	Screen_BlitFullscreenImage	loading-screen bitmap, scaled blit into locked back buffer [sky-2048]
+0x00587380	Splash_Display	Splash screen initialization and delay management [frame-timing]
+0x005879c0	Splash_Free	Splash screen texture deallocation (waits for 3,000 ms display window) [frame-timing]
+0x00587a70	UI_RenderLoadingBar	M: loading bar scaled from 640x480 coordinates [display-pipeline]
+0x00587c80	LoadingScreen_Update	Splash and loading progress bar update function [sky-2048] (also: Splash_UpdateProgress [frame-timing])
+0x005aa500	CD_FindDiscByLabel	scans CD-ROM drives for label "TPWorld"; noCD jmp at 0x005aa5ad always succeeds [startup-and-switches]
+0x005aa650	CD_SetCDRootPath	stores "<letter>:\" as path-manager CD root (+0x14) [startup-and-switches]
+0x005b5bf0	Online_UpdateNews	M: per-frame online/news monitor call from App_WinMain [frame-timing]
+0x005b6230	Online_IsConnected	M: 0 when offline (EscMenu_BuildFrontEnd adds Options only then) [frontend-menus]
+0x005c0c10	Paths_Init	builds game/data/levels/save paths from base dir [startup-and-switches]
+0x005c0d00	Lang_SelectFromRegistry	reads Language LCID (default 0x809), sets language folder 0x00f7f230 [startup-and-switches]
+0x005c4d50	FileSys_Open	M: (name, mode) -> stream object (vtable: +0 delete, +4 close, +8 read, +0xc write, +0x14 size); searches the mounts (17 callers)
+0x005c5010	WAD_ExtractFileToDisk	Extracts a file from WAD archive to temporary disk file [text-rendering]
+0x005c83b0	Player_Load	M: loads the chosen player (PlayerSelect_SlotProc) [frontend-menus]
+0x005c8b70	Sys_CreateWorkerThread	Operating system abstraction wrapping CRT `_beginthread` [frame-timing]
+0x005d2850	Net_SocketThreadProc	M: online chat socket worker [frame-timing]
+0x005d5700	FEComponent_BaseCtor	vtable 0x007029d0, registers with g_FrontEnd [frontend-menus]
+0x005d5770	FrontEnd_Ctor	0x38-byte manager, vtable 0x007029f0, stored in g_FrontEnd 0x00f82884 [frontend-menus]
+0x005d58b0	FrontEnd_RootProc	widget proc of FE root 0xbf431, forwards to FrontEnd_HandleMsg [frontend-menus]
+0x005d58e0	FrontEnd_MailButtonProc	FE child 0xbf432 ("i_mail") click [frontend-menus]
+0x005d5970	FrontEnd_Init	Layout_Create(root,0x774c18,0x5d58b0); creates screen manager 0x00f85614; player-select if no player [frontend-menus]
+0x005d5c50	FrontEnd_Update	per-frame component update (vtbl+8) [frontend-menus]
+0x005d5cc0	FrontEnd_Render	per-frame component render (vtbl+0xc) [frontend-menus]
+0x005d5cf0	FrontEnd_Shutdown	component shutdown, frees singletons, destroys FE root [frontend-menus]
+0x005d5da0	FrontEnd_RegisterComponent	manager vtbl[0] [frontend-menus]
+0x005d5db0	FrontEnd_RequestQuit	g_FrontEnd+0x14 = 3 (Quit Game confirm) [frontend-menus]
+0x005d5dd0	FrontEnd_HandleMsg	stores cursor from 0x10003 at +0x20/+0x24, button bits +0x1c, forwards to children [mouse-input]
+0x005d8b50	FrontEnd_FantasyWorldInit	fly-by world: bg 0xff44ddff, flag 0x4000000 (M) [sky-2048]
+0x005d8bef	FrontEnd_FantasyWorldInit_SetBgColour	H: mov [0x8bd47c],0xff44ddff (immediate at +6) [sky-2048]
+0x005da3c0	Debug_Trace	H: empty stub (ret); all debug traces compiled out. Also used as the shared empty virtual method in many vtables [startup-and-switches]
+0x005da3d0	Stub_Ret0C	H: ret 0xc; shared empty virtual method (3 arguments)
+0x005dc860	FrontEnd_PickMenuItem	per-frame ray pick from front-end cursor, hovered item at +0x70 [mouse-input]
+0x005e3c20	FEScreenMgr_Ctor	DAT_00f85614, vtable 0x00702d78 [frontend-menus]
+0x005e3dc0	FEScreenMgr_Init	creates 5 FE screens (+4,+8,+0xc,+0x10,+0x14) [frontend-menus]
+0x005e41c0	FEScreenMgr_HandleMsg	Esc key-up -> EscMenu_Show(1) if no screen consumed it [frontend-menus]
+0x005eab70	Uniscribe_RenderTextLineToDIB	Renders line to 2x supersampled DIB using Uniscribe and downsamples to texture [text-rendering]
+0x005ec220	Sign_CleanupTextureGen	Cleans up temporary resources for sign texture generation [text-rendering]
+0x005ec3a0	Sign_LoadConfiguration	Parses .sgn sign configuration file [text-rendering]
+0x005ec680	Font_RegisterTTFResource	Extracts TTF from fonts.wad and calls AddFontResourceA, tracks in vector [text-rendering]
+0x005ecb40	SignTexture_RenderDualLineText	Renders line 1 and line 2 to sign texture buffer [text-rendering]
+0x005f5590	InputMgr_Poll	pumps messages, then dispatches queued input events to a callback struct [mouse-input]
+0x005f55c0	InputMgr_CreateKeyboard	M: DirectInput keyboard device (UI_InitCursorAndInput) [mouse-input]
+0x005f5600	InputMgr_CreateMouse	M: DirectInput mouse device [mouse-input]
+0x005f5640	InputMgr_GetCursorPos	returns &tracker->x (client px), manager 0x00fa6e40 [mouse-input]
+0x005f5650	InputMgr_SetCursorClip	tracker clip rect +0x34..+0x40 [mouse-input]
+0x005f5690	Path_SetBaseDir	stores base dir (cwd) with trailing slash into 0x00fa6fd0 [startup-and-switches]
+0x005f5950	Path_GetExeDirFromCmdLine	extracts exe directory from GetCommandLineA (fallback base dir) [startup-and-switches]
+0x005f5e20	Stream_ReadChecked	M: calls stream vtable +8 (buf,len); success if all bytes moved; used by the load modules
+0x005f5e50	Stream_WriteChecked	M: calls stream vtable +0xc (buf,len); used by the save modules
+0x005f5e80	Platform_InitTimer	Initializes high-resolution QPC counter and base `timeGetTime` [frame-timing]
+0x005f5f10	Platform_GetTimeMs	Low-level monotonic millisecond clock (QPC with `timeGetTime` fallback) [frame-timing]
+0x005f5fa0	Platform_GetGameTimeMs	Wrapper returning millisecond timestamp from global timer `DAT_00fa71e0` [frame-timing]
+0x005f60b0	BFString_Ctor	H: thiscall(const char *): copies the C string; used by thousands of static initialisers for global path strings
+0x005f61e0	BFString_Dtor	H: frees +8
+0x005f87b0	Drive_EnumerateByType	GetLogicalDriveStringsA + GetDriveTypeA filter mask (8 = CDROM) [startup-and-switches]
+0x005f8940	Drive_FindByVolumeLabel	returns drive letter whose volume label matches [startup-and-switches]
+0x005f89d0	Drive_LetterFromRoot	returns letter if root is "X:" [startup-and-switches]
+0x005f89f0	Drive_GetVolumeLabel	GetVolumeInformationA wrapper [startup-and-switches]
+0x005f8ae0	Reg_OpenBullfrogKey	RegCreateKeyExA KEY_ALL_ACCESS on HKLM (or HKCU) software\Bullfrog Productions Ltd\<sub> [startup-and-switches]
+0x005f8b80	Reg_CloseKey	RegCloseKey wrapper [startup-and-switches]
+0x005f8bc0	Reg_CreateKey	RegCreateKeyExA wrapper, returns HKEY or 0 [startup-and-switches]
+0x005f8c00	Reg_QueryValueRaw	RegQueryValueExA wrapper [startup-and-switches]
+0x005f8c50	Reg_QueryDword	reads DWORD (types 4/5, 6 byteswapped) [startup-and-switches]
+0x005f8cf0	Reg_QueryDwordDefault	Reg_QueryDword with default on failure [startup-and-switches]
+0x005f8d40	Reg_GetValueType	returns value type, -2 if subkey, -1 if missing [startup-and-switches]
+0x005fa1e0	LibScreen_Create	M: creates the hidden _BullfrogLibScreen popup and a second DirectDraw (from UI_InitCursorAndInput 0x00489cb1) [WIKI_LOG]
+0x005fa2f0	LibScreen_EnumModes	H: SetCooperativeLevel(0x55) at 0x005fa3ac (patched to 8 by the HD patch), EnumDisplayModes, back to NORMAL [WIKI_LOG, src/game.h]
+0x005fa3ac	LibScreen_EnumModes_CoopPush	H: push 0x55 (EXCLUSIVE|FULLSCREEN|...); compat patch -> push 8 [src/game.h ModeListCoopPush]
+0x005fba00	Audio_StreamThreadProc	M: CD/stream audio worker [frame-timing]
+0x005fbc30	Audio_StartStreamingThread	Creates worker thread for background CD / streaming audio [frame-timing]
+0x00618610	InputMgr_OnEngineMsg	msg 4 activate (Acquire), 6 suspend, 7 set coop levels (mouse 5, kbd 6 or both 0xA) [mouse-input]
+0x0061a250	WadMount_ReadDirectory	M: reads and checks the WAD header ('DWFB' at +0x60) and directory
+0x00632460	IO_AsyncLoaderThreadProc	M: async file/package loader worker [frame-timing]
+0x006324e0	Input_ThreadLoop	WaitForMultipleObjects on DirectInput notification events, calls device Poll [mouse-input]
+0x00632600	IO_StartAsyncLoaderThread	Creates worker thread for asynchronous file and package streaming [frame-timing]
+0x00633a00	DIDevice_BaseCtor	coop flags default 5, want-acquire 1 [mouse-input]
+0x00633aa0	DIDevice_ApplyCoopLevel	Unacquire + SetCooperativeLevel(hwnd 0x00fa7610, flags) [mouse-input]
+0x00633b90	DIDevice_Acquire	apply coop level then Acquire (+0x1c) [mouse-input]
+0x00633bf0	DInput_CreateDevice	DirectInputCreateA(0x500) + CreateDevice + SetDataFormat [startup-and-switches]
+0x00633d10	DIDevice_SetCoopFlags	sets EXCLUSIVE/NONEXCLUSIVE/FOREGROUND/BACKGROUND bits and re-acquires [mouse-input]
+0x00634220	CursorTracker_Ctor	vtable 0x00703cc8; SPI_GETMOUSE, GetDoubleClickTime, SwapMouseButton probe [mouse-input]
+0x00634360	CursorTracker_OnAxis	accelerated relative delta into float pos +0x20/+0x24 [mouse-input]
+0x00634420	CursorTracker_OnButton	button swap, double-click flag, attaches pos to event [mouse-input]
+0x006344f0	CursorTracker_Clamp	clamps float pos to rect, writes int pos +0x10/+0x14 [mouse-input]
+0x006345d0	DIMouse_Ctor	vtables 0x00703cf8 / 0x00703ce8, GUID_SysMouse, c_dfDIMouse 0x00679440 [mouse-input]
+0x00634900	DIMouse_ProcessBuffered	DIMOFS_X/Y/Z -> axis events, BUTTON0..3 -> 0xf0..0xf3 [mouse-input]
+0x00634ee0	DIKeyboard_Ctor	vtables 0x00703d38 / 0x00703d28, GUID_SysKeyboard [mouse-input]
+0x0063e8c0	DIDevice_InitBuffered	SetEventNotification, 32-record buffer, DIPROP_BUFFERSIZE [mouse-input] (also: DInputDevice_InitBuffered [startup-and-switches])
+0x0063e970	DIDevice_PollBuffered	GetDeviceData(16, buf, 32, 0), re-acquire on INPUTLOST, then ProcessBuffered [mouse-input]
+0x006584df	UI_CreateRoot	root widget 0..0x7ff x 0..0x5ff (2048x1536), queues [mouse-input]
+0x006588b6	UI_HashName	h = (h ^ c) * mul [frontend-menus]
+0x006588ef	UI_MouseMove	cdecl(vx,vy): sets 0x00faa540/544, hit-test, sends 0x10001/0x10002/0x10003 [mouse-input]
+0x00658af1	UI_MouseButtonDown	cdecl(btn,vx,vy): 0x10005 to hovered widget 0x00faa5e0 [mouse-input]
+0x00658b5b	UI_MouseButtonUp	cdecl(btn,vx,vy): 0x10004 to widget that got the press [mouse-input]
+0x00658bcb	UI_MouseWheel	cdecl(delta/120,vx,vy,0): 0x1000d [mouse-input]
+0x00658c38	UI_KeyDown	cdecl(key,flags): 0x1000a [mouse-input]
+0x00658c67	UI_KeyUp	cdecl(key,flags): 0x1000b [mouse-input]
+0x00658c96	UI_Char	cdecl(wchar,flags): 0x1000c [mouse-input]
+0x00658ccc	UI_PostWidgetMsg	queues (widget,msg,a,b) into 0x00faa5f0 / 0x00faa5f4 [mouse-input]
+0x00658d9f	UI_SendMsg	cdecl(w,msg,a,b); msg 4 destroys [frontend-menus]
+0x00658e42	UI_DispatchQueue	pops and dispatches up to n queued widget messages, observer 0x00faa5fc [mouse-input]
+0x006590d0	UI_SetScreenSize	stores W/H int16 into 0x00faa5c4/0x00faa5c0 (first WndProc message) [mouse-input]
+0x00659333	UI_EnableInput	DAT_0077c488=1, sends 0x21 to widget tree (WM_ACTIVATEAPP TRUE) [mouse-input]
+0x006593c5	UI_DisableInput	DAT_0077c488=0, clears button bits (WM_ACTIVATEAPP FALSE) [mouse-input]
+0x0065964a	Media_GetTimeMs	Wrapper for `timeGetTime` used during video stream synchronization [frame-timing]
+0x00659a58	UI_RegisterSpriteBank	M: registration of sprite banks (from 0x00488d20 / 0x00488ee0 / 0x00489060) [frontend-menus]
+0x00659bc9	UI_FindImageByName	cdecl(name): hash (h^c)*0x2f, returns new renderer [frontend-menus]
+0x00659c42	UI_FindImageByHash	cdecl(hash) [frontend-menus]
+0x0065bcad	Widget_BaseCtor	type 1 WINDOW, 0x138 bytes, vtable 0x00705980 [frontend-menus]
+0x0065c388	Widget_SetFont	thiscall(font*) -> +0x4c [frontend-menus] (also: UI_SetCurrentFont [text-rendering])
+0x0065c428	Widget_SetTextAlign	thiscall(h,v); 1,1 = centred [frontend-menus]
+0x0065c5d5	Widget_SetColour	thiscall(r,g,b,a) [frontend-menus]
+0x0065d070	Widget_SetImage	thiscall(renderer) -> +0x98 [frontend-menus]
+0x0065d1c8	Widget_SetTextRenderer	thiscall(renderer) -> +0x9c [frontend-menus]
+0x0065d55a	Widget_GetParent	+0x60 [frontend-menus]
+0x0065d7bc	Widget_GetId	+0x8c [frontend-menus]
+0x0065d7d0	Widget_FindChild	thiscall(id): direct children only [frontend-menus]
+0x0065d9dd	Widget_Show	thiscall(bool): flags+0x48 bit0 [frontend-menus]
+0x0065db25	UI_HitTest	deepest visible widget containing (vx,vy) [mouse-input]
+0x0065dd7b	Widget_CreateChild	thiscall(parent; type, flags, id, x1,y1,x2,y2) ret 0x1c [frontend-menus]
+0x0065e526	Widget_SetHandler	thiscall(proc) -> +0x114; proc = int cdecl(w,msg,a,b) [frontend-menus]
+0x0065e59b	Widget_SetKeyFocus	focus 0x00faa5ec, sends 0x1f/0x20 [frontend-menus]
+0x0065e5fa	Widget_ReleaseKeyFocus	clears focus if this widget has it [frontend-menus]
+0x0065e6d5	Widget_SetUserData	thiscall(i,v) -> +0xa0[i] [frontend-menus]
+0x0065e705	Widget_GetUserData	thiscall(i) [frontend-menus]
+0x0065f16b	Widget_SetDepth	draw-order depth +0xe0, recursive [frontend-menus]
+0x0065f447	Widget_AttachChild	thiscall(child, setDepth, setCentre) [frontend-menus]
+0x0065f538	Widget_Detach	unlinks from parent [frontend-menus]
+0x0065f645	Widget_SetText	vtbl+0x24, thiscall(wchar_t*) [frontend-menus]
+0x0065f66e	Widget_DefProc	thiscall(msg,a,b): calls class proc +0x118 [frontend-menus]
+0x0065f697	Widget_Dispatch	called by UI_SendMsg [frontend-menus]
+0x0065fd0e	Layout_Create	thiscall(parent; layout, proc) ret 8: build widget tree from exe bytecode [frontend-menus]
+0x0065fd58	Layout_Exec	layout bytecode interpreter (index 0x00faa620) [frontend-menus]
+0x006607ca	UIScript_Entry	H: dead: entry of the text-keyword UI-script parser (0x0066db20 / 0x0066dc2c, table 0x0077c4ec); no callers, no pointers [frontend-menus]
+0x006688b3	Button_Ctor	type 2 BUTTON, 0x15c bytes, vtable 0x00705a50 [frontend-menus]
+0x0066efd0	QSound_StartMixerThread	M: QSound/QMixer buffer feeder thread [frame-timing]
+0x0066f090	TGQ_PlayerThreadProc	L: movie decode thread (SetThreadPriority, Sleep, Interlocked*)
+0x0066f4e0	TGQ_Open	M: opens and starts a .tgq movie (file, hwnd, surfaces) -> handle
+0x0066f520	TGQ_SetVolume	M: (handle, volume in 1/100 dB)
+0x0066f540	TGQ_IsPlaying	M
+0x0066f580	TGQ_Stop	M
+0x006787f0	SoftRender_CopyClear16	H: 16-bpp twin of SoftRender_CopyClear32 [src/game.h]
+0x00678c20	SoftRender_CopyClear32	H: cdecl, 10 args: 32-bpp frame copy + clear; clears with movq mm4,[ebp+0x2c] (colour + junk dword -> stripes) [src/game.h, WIKI_LOG]
+0x00678e70	Mem_AllocBuffer	M: allocates the software framebuffer (W*H*4) [display-pipeline]
+0x0067a7d0	CRT_atexit	H: registers the StaticDtor_ stubs of the static initialisers
+0x0067acb0	operator_delete	H [frontend-menus]
+0x0067acc0	operator_new	H [frontend-menus]
+0x0067b0c0	CRT_purecall	H: _amsg_exit(0x19) (R6025 pure virtual call); the abstract slot in many vtables
+0x0067b0d0	CRT_wcscpy	H [frontend-menus]
+0x0067b9f0	CRT_getcwd	M [startup-and-switches]
+0x0067bed0	CRT_wcscat	H [frontend-menus]
+0x0067df40	CRT_stricmp	H: _stricmp (CmdLine_ParseSwitches) [startup-and-switches]
+0x0067e050	CRT_beginthread	MSVC CRT thread creation implementation [frame-timing]
+0x0067ee10	CRT_WinMainCRTStartup	PE entry point initializing MSVC CRT before calling `WinMain` [frame-timing]
+0x0067f780	CRT_beginthreadex	MSVC CRT extended thread creation implementation [frame-timing]
+0x006b0680	Font_LoadF4FBResource	Resource loader for Bullfrog F4FB font format [text-rendering]
+0x006b15f0	Font_BlitGlyph4BitAlpha	Software 4-bit alpha font glyph rasterizer onto DirectDraw surface [text-rendering]
+0x006b5bd0	Sound_PostCommand	M: sends a one-slot command object (vtable 0x00700b2c..0x00700bbc) to the sound system (23 callers)
+0x006d2110	QMixerDriver::Init	H: QSWaveMixInitEx, Activate, OpenChannel, SetListenerPosition
+0x006d2220	QMixerDriver::SetOptions	H: QSWaveMixSetOptions
+0x006d2260	QMixerDriver::GetDirectSoundBuffer	H: QSWaveMixGetDirectSoundBuffer
+0x006d22b0	QMixerDriver::Shutdown	H: QSWaveMixCloseSession
+0x006d2320	QMixerDriver::EnableChannels	H: QSWaveMixEnableChannel, SetPanRate
+0x006d2380	QMixerDriver::PlayWave	H: QSWaveMixOpenWaveEx, ConfigureChannel, PlayEx, FreeWave
+0x006d24c0	QMixerDriver::StopChannel	H: QSWaveMixStopChannel
+0x006d2500	QMixerDriver::PauseChannel	H: QSWaveMixPauseChannel
+0x006d2540	QMixerDriver::RestartChannel	H: QSWaveMixRestartChannel
+0x006d25e0	QMixerDriver::GetSourcePosition	H: QSWaveMixGetSourcePosition
+0x006d2640	QMixerDriver::SetSourcePosition	H: QSWaveMixSetPosition / SetSourcePosition
+0x006d2980	QMixerDriver::SetVolume	H: QSWaveMixSetVolume
+0x006d2a10	QMixerDriver::SetListenerPosition	H: QSWaveMixSetListenerPosition
+0x006d2b20	QMixerDriver::SetListenerOrientation	H: QSWaveMixSetListenerOrientation
+0x006ff530	TextRenderer::vftable	H: TextRenderer_Ctor, 0x1a4 bytes [frontend-menus]
+0x00700b64	SoundCmdPause::vftable	M: command object posted by Sound_PauseAll
+0x00700b68	SoundCmdResume::vftable	M: command object posted by Sound_ResumeAll
+0x007013c8	DDrawContext::vftable	M: vtable stored by 0x00569e10; object [0x879ab0]; +0x18/+0x1c are stubs returning 1 [WIKI_LOG]
+0x00701630	D3DRenderer::vftable	H: renderer interface of Direct3D_CreateContext (0x00572c76); g_DisplayDevice points at it; [0] clear thunk, [1] present [sky-2048, display-pipeline]
+0x00701688	SoftRenderer::vftable	H: renderer interface of SoftwareRenderer_CreateContext (0x0057398d); [1] = SoftwareRenderer_PresentThunk [display-pipeline]
+0x007029d0	FEComponent::vftable	H: front-end component base (FEComponent_BaseCtor): +4 init, +8 update, +0xc render, +0x10 shutdown, +0x14 message [frontend-menus]
+0x007029f0	FrontEnd::vftable	H: front-end manager (FrontEnd_Ctor, 0x38 bytes, g_FrontEnd) [frontend-menus]
+0x00702a94	FEFantasyWorld::vftable	M: fly-by world (FrontEnd_FantasyWorldInit 0x005d8b50 is slot 0; level Data\Levels\fantasy) [sky-2048]
+0x00702d78	FEScreenMgr::vftable	H: front-end screen manager (FEScreenMgr_Ctor, g_FEScreenMgr) [frontend-menus]
+0x00702da0	FEScreen_Slot14::vftable	H: screen at FEScreenMgr+0x14 (0x2c bytes) [frontend-menus]
+0x00702dd0	FEScreen_Slot08::vftable	H: screen at FEScreenMgr+8 (0xec bytes) [frontend-menus]
+0x00702e20	FEScreen_Slot10::vftable	H: screen at FEScreenMgr+0x10 (0x7c bytes; activated when online) [frontend-menus]
+0x00702e70	FEScreen_Slot0C::vftable	H: screen at FEScreenMgr+0xc (0x7c bytes) [frontend-menus]
+0x00702ec0	FEScreen_Slot04::vftable	H: screen at FEScreenMgr+4 (0xe8 bytes; a 3D island/lobby scene) [frontend-menus]
+0x00703090	BFString::vftable	H: engine string class (BFString_Ctor; +4 length, +8 buffer, +0xc capacity, +0x10 grow step 8)
+0x00703898	FileMount::vftable	M: abstract file source (purecall slots); DirMount and WadMount derive from it
+0x007038d0	DirMount::vftable	M: folder mount (FindFirstFileA in vf08)
+0x00703908	WadMount::vftable	H: .wad archive mount (header magic 'DWFB' checked in 0x0061a250)
+0x00703cc8	CursorTracker::vftable	H: ctor CursorTracker_Ctor; slot 5 OnAxis, 6 OnButton [mouse-input]
+0x00703ce8	DIMouseSink::vftable	H: DIMouse sub-object (+0x10) vtable [mouse-input]
+0x00703cf8	DIMouse::vftable	H: ctor DIMouse_Ctor; slot 3 DIDevice_PollBuffered, 5 DIMouse_ProcessBuffered [mouse-input]
+0x00703d28	DIKeyboardSink::vftable	H: DIKeyboard sub-object vtable [mouse-input]
+0x00703d38	DIKeyboard::vftable	H: ctor DIKeyboard_Ctor [mouse-input]
+0x00703e30	Win32File::vftable	M: CreateFileA / ReadFile stream
+0x00705980	Widget::vftable	H: type 1 WINDOW (Widget_BaseCtor, 0x138 bytes); +0x24 Widget_SetText [frontend-menus]
+0x00705a50	Button::vftable	H: type 2 BUTTON (Button_Ctor, 0x15c bytes) [frontend-menus]
+0x00707c40	GUID_SysMouse	H [mouse-input]
+0x00707c50	GUID_SysKeyboard	H [mouse-input]
+0x00711920	QMixerDriver::vftable	H: sound driver over QMixer (QSWaveMix* imports; ctor 0x006d1e30)
+0x00747f38	Keybinds_System	H: entries {id,key,mods,pressed,name*,handler*} 0x14 bytes [startup-and-switches]
+0x00748028	Keybinds_Game	H [startup-and-switches]
+0x00748158	Keybinds_Camera	H [startup-and-switches]
+0x00748350	Keybinds_Coaster	H [startup-and-switches]
+0x00748378	Keybinds_Shortcuts	H [startup-and-switches]
+0x007484d0	Keybinds_Cheat	H: dispatched only when Cheat_IsEnabled [startup-and-switches]
+0x00752f30	Layout_Options	layout bytecode (data) [frontend-menus]
+0x00753c68	Layout_PlayerSelect	layout bytecode (data) [frontend-menus]
+0x00774c18	Layout_FrontEndRoot	layout bytecode (data) [frontend-menus]
+0x0077c480	g_UIClickTime	H: click time limit used by Widget_DefProc [frontend-menus]
+0x0077c488	g_UIInputEnabled	init 1; 0 drops all UI mouse/key input (data) [mouse-input]
+0x007858ec	g_ResolutionSetting	H: Resolution.sam RESOLUTION (0 = options screen value); read only at 0x00419e5e and 0x0044a03f [names.tsv, WIKI_LOG]	int
+0x00785970	g_GameTimer	H: the game clock (struct GameTimer in types.tsv; RealClock at +0x50). frame-timing.md 5.1 layout was partly wrong	GameTimer
+0x00785de8	g_ErrorReporter	H: pending error code + text (ErrorReporter_Set/Show) [startup-and-switches]
+0x00786b68	g_Game	M: game/session object passed to Game_Pause/Resume/FrameTimerStep (+0x1c paused, +0x18 quit request, +0x3c 1 = in park)
+0x00788160	g_QuickLoadPending	H: set by a *.TPWS argument [startup-and-switches]
+0x00788164	g_QuickLoadPath	H: the *.TPWS argument [startup-and-switches]
+0x0078826c	g_FlMouse	H: /flmouse: forces the 3dfx cursor mode [startup-and-switches]
+0x00788270	g_BwCursor	H: /bwcursor: mono cursor, no DirectInput mouse [startup-and-switches]
+0x00789c1c	g_FontResourceList	M: std::vector<std::string> of registered TTF files [text-rendering]
+0x0078b530	g_LanguageLoaded	H: language manager base (this of Lang_LoadTextTables, ecx); [+0]=1 once the text tables are loaded, which gates ErrorReporter_Show [startup-and-switches]
+0x0078b534	g_FontTier	H: active font tier 0..3 (Font_SelectResolutionTier writes [ecx+4]) [text-rendering]	int
+0x0078b54c	g_FontTierTable	H: Font_GetFromActiveTier returns 0x78b54c + 24*(id + 13*tier); 13 fonts x 4 tiers [text-rendering]
+0x0078d8d8	g_Config	H: settings object (save\config.tcf; struct Config in types.tsv); this of Config_* [startup-and-switches]	Config
+0x007909c0	g_CameraEye	M: camera position (3 floats) passed to Sound_SetListener in the park
+0x00790ab0	g_CameraFlags	M: bits 0x16 tested by Game_FrameCallback and the park loop (how the eye and sound listener are updated)
+0x0079d86c	g_DebugFlags	H: dialog.tcf field 2: 0x40 software renderer, 0x4000 skip detail .sam, 0x800/0x1000/0x2000 detail [startup-and-switches]
+0x0079d9c8	g_TextureCacheMB	H: dialog.tcf TextureCacheSize [startup-and-switches]
+0x007a0c9c	g_ScreenHalfWidth	H: (float)width * 0.5 [display-pipeline]	float
+0x007a130c	g_hWnd	H: main game window HWND (GetDC in RideSign_GenerateTexture) [text-rendering]
+0x007a1614	g_CmdLineRaw	M: WinMain lpCmdLine, stored and never parsed [startup-and-switches]
+0x007a162c	g_ScreenHalfHeight	H: (float)height * 0.5 [display-pipeline]	float
+0x007a1930	g_ScreenHeight	H: game height [names.tsv]	int
+0x007a1968	g_ScreenWidth	H: game width (Video_InitResolution) [names.tsv]	int
+0x007a1a14	g_AppFlags	H: |=2 quit, &4 first idle tick done, &8 app active (WM_ACTIVATEAPP) [startup-and-switches, mouse-input]
+0x007a1a8c	g_DisplayFlags	H: bit0 fullscreen, 0x8 .. 0x100 / 0x20000000.. dev sizes, 0x800 colour cursor, 0x1000 2nd card, 0x200000 32 bpp; default 0xc0e15 at 0x00449e1c [startup-and-switches]	unsigned int
+0x007a267c	g_InstanceMutex	H: TPWMutex handle [startup-and-switches]
+0x007b05d0	g_ShowFps	H: FPS overlay flag, read only at 0x0054e395; nothing sets it (StaticInit_FpsVars clears it) [startup-and-switches]
+0x007b496c	g_FrameTimeMs	H: integer ms timestamp for g_FrameDeltaSec [frame-timing]	int
+0x007b497c	g_FrameDeltaSec	H: per-frame delta in seconds (Camera_UpdateTimeDelta) [frame-timing]	float
+0x007b4b84	g_ColourCursorSprite	H: colour cursor sprite (UI_InitColourCursor) [mouse-input]
+0x007b4b88	g_DInputCursor	1 = colour cursor and DirectInput mouse mode (data) [mouse-input]
+0x007b9d00	g_UILastCursorX	H: last polled DirectInput cursor x (UI_Update) [mouse-input]
+0x007b9d04	g_UILastCursorY	H [mouse-input]
+0x007ba058	g_UITextBuf	shared GetUIText buffer (data) [frontend-menus]
+0x007c2118	g_TitleTextRenderer	H: the one static renderer of UI_SetTitleText [frontend-menus]
+0x007c2534	g_EscMenu	H: TextMenu of the open Esc menu [frontend-menus]	TextMenu *
+0x007cb2fc	g_Options	H: Options screen root widget [frontend-menus]	Widget *
+0x007cb3f8	g_PlayerSelect	H: player-select panel root widget [frontend-menus]	Widget *
+0x00802bb4	g_MovieHandle	M: TGQ player handle (Video_PlayTGQFrame)
+0x00802bbc	g_MoviePlaying	M
+0x00802bc0	g_MoviesEnabled	M
+0x00802bc8	g_SoundEnabled	M: Sound_Init enable argument
+0x00802bd4	g_SoundInitialised	H: set by Sound_Init
+0x00875034	g_FpsLastTime	M: previous frame time for the FPS overlay [frame-timing]
+0x00877d34	g_SimTickCount	H: +1 per 31 ms tick [frame-timing]	int
+0x00877eb8	g_ProfilerText	H: "E: W: R: P: S:" line, passed only to Debug_Trace [startup-and-switches]
+0x00878128	g_CaptureEveryFrame	H: dump a TGA every frame [startup-and-switches]
+0x008786bc	g_SimNowMs	H: game time this frame (Timer_GetGameTimeMs) [frame-timing]	int
+0x008787a0	g_CmdLine	H: CmdLine_Split object (argv split at " /") [startup-and-switches]
+0x00878c74	g_SimLastTickMs	H: simulation accumulator; += 31 per tick, clamped to now-2000 [frame-timing]	int
+0x0087906c	g_GameState	H: Game_MainStateMachine state: 1 FE init, 2 FE run, 3 FE exit, 5-8 movies, 9, 0xc park load, 10 park [frontend-menus]
+0x00879a24	g_DDrawContext	M: DirectDraw context (back buffer at +0x14) [display-pipeline]
+0x00879a2c	g_EngineDebugLogOpened	H: 0 -> enginedebug.txt opened "w", else "a" [frame-timing]
+0x008bcbc8	g_EngineFlags	0x2000/0x4000000 clear to bg colour, 0x2000000 sky reflection, 0x400000 sky objects, 0x800000 table fog [sky-2048]
+0x008bcbd0	g_RenderWidth	H: engine surface width (surfaces, viewport) [display-pipeline]
+0x008bcbd4	g_RenderHeight	H: engine surface height [display-pipeline]
+0x008bcbe4	g_DesktopPixelFormat	M: GetDisplayMode result used for the windowed back buffer [startup-and-switches]
+0x008bcbe8	g_ViewportWidth	M: clear rect width [sky-2048]
+0x008bcbec	g_ViewportHeight	M: clear rect height [sky-2048]
+0x008bcc1c	g_DefaultTLZ	1.0, set at 0x582dc1 [sky-2048]
+0x008bcc3c	g_TLVertexZ	z for projection mode 1 (sky) [sky-2048]
+0x008bcc40	g_PresentCount	M: frame counter incremented by BDEngine_Present [frame-timing]
+0x008bd47c	g_BackgroundColour	clear and fog colour; 0xff44ddff in fly-by [sky-2048]
+0x008bd508	g_EngineDebugFlags	M: bit0 present by Blt, 0x40 (cleared unless debug 0x2), 0x1000000 verbose enginedebug.txt, 0x2000000 fallback.txt [startup-and-switches]
+0x008bd518	g_EngineHwnd	H: window compared with GetFocus() by BDEngine_Present and World_RenderFrame [mouse-input]
+0x008bd524	g_RendererType	H: 1 Direct3D, 4 software [display-pipeline]
+0x008bd52c	g_DisplayDevice	interface with vtable 0x701630 ([0]=clear) [sky-2048]
+0x008bd550	g_EngineFlags2	M: |2 from debug 0x80000; 0x80 c:\tcache.log [startup-and-switches]
+0x008c1828	g_Sky	sky object, ~0x2f14 bytes [sky-2048]
+0x00f7f230	g_LanguageFolder	M: language folder name (Data\Language\<name>) set by Lang_SelectFromRegistry [startup-and-switches]
+0x00f81ebc	g_PlayerMgr	M: player manager (+0x60 current player, -1 none) [frontend-menus]
+0x00f82884	g_FrontEnd	H: front-end manager (FrontEnd_Ctor), set in state 1 [frontend-menus]	FrontEnd *
+0x00f85614	g_FEScreenMgr	H: front-end screen manager [frontend-menus]	FEScreenMgr *
+0x00fa6e40	g_InputManager	H: engine input manager; +0x58 kbd, +0x5c mouse, +0x64 cursor tracker (struct InputManager) [mouse-input]	InputManager
+0x00fa6fd0	g_BaseDir	M: base directory with trailing slash (Path_SetBaseDir) [startup-and-switches]
+0x00fa71e0	g_PlatformClock	M: QPC clock object of Platform_GetTimeMs [frame-timing]
+0x00fa7610	g_InputHwnd	H: HWND for DirectInput SetCooperativeLevel [mouse-input]
+0x00faa540	g_UIMouseX	H: last virtual mouse x (UI_MouseMove) [mouse-input]
+0x00faa544	g_UIMouseY	H: last virtual mouse y [mouse-input]
+0x00faa588	g_UIPressedWidget	H: widget that got the press, per button [mouse-input]
+0x00faa5c0	g_UIScreenH	H: int16 client height [mouse-input]	short
+0x00faa5c4	g_UIScreenW	H: int16 client width the UI maps from (UI_SetScreenSize) [mouse-input]	short
+0x00faa5d8	g_UIRoot	H: root widget (2048x1536, UI_CreateRoot) [frontend-menus]	Widget *
+0x00faa5e0	g_UIHoverWidget	H: hovered widget [mouse-input]	Widget *
+0x00faa5e8	g_UIMouseCapture	M: capturing widget; moves go only to it [mouse-input]
+0x00faa5ec	g_UIKeyFocus	H: key-focus widget [frontend-menus]	Widget *
+0x00faa5f0	g_UIMsgQueue	H: queued widget messages (UI_PostWidgetMsg) [mouse-input]
+0x00faa5fc	g_UIMsgObserver	H: sees every dispatched widget message (UI_GlobalMsgObserver) [mouse-input]
+0x00faa610	g_SpriteBankList	M: registered UI sprite banks [frontend-menus]
+0x00faa620	g_LayoutIndex	H: Layout_Exec position (not re-entrant) [frontend-menus]
+0x00fb3520	g_CheatState	H: this of Cheat_IsEnabled; cheat flag byte at +0xa (0x00fb352a) [startup-and-switches]

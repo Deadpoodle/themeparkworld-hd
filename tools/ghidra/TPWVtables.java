@@ -15,14 +15,18 @@
 // 2. Functions: every slot target that is not a function yet becomes one. A target inside an existing
 //    function that follows padding or a ret/jmp splits that function (it ran on past its end).
 //    Other code pointers (push/mov immediates, dwords in data) to an address that follows padding
-//    become functions too (callbacks, keybind handlers, widget procs). Then auto-analysis runs on the
-//    changes.
+//    become functions too (callbacks, keybind handlers, widget procs, and above all the CRT static
+//    initialisers and their atexit destructors). Then auto-analysis runs on the changes. A second run
+//    finds a few more (code that the first run's analysis disassembled); a third creates none.
+// 3a. The longest run of code pointers in data is the static-constructor table (__xc_a..__xc_z):
+//    unnamed targets become StaticInit_<addr>, the functions they pass to atexit StaticDtor_<addr>.
 // 3. Names: the class of a vtable is the namespace of a "vftable" label at it (names.tsv:
 //    "0x00705980  Widget::vftable"), else Class_<address>. An unnamed slot function goes into the class
 //    of the smallest vtable that holds it at that slot (a base class has no more slots than the classes
 //    derived from it) as vfXX (XX = slot offset) and becomes __thiscall; a function at different slots
 //    of several vtables is a shared stub and is left alone. Unnamed functions that store a vtable into
-//    `this` become Class::Class, or Class::~Class when they are a slot or are called from one. Names
+//    `this` become Class::Class, or Class::~Class when they are a slot or are called from a slot that
+//    also calls operator_delete (the scalar deleting destructor). Names
 //    from names.tsv are never changed. Re-runnable: ApplyNames resets these generated names first.
 // 4. Types: one Class_vftable struct per vtable (a typed function pointer per slot) applied at the
 //    vtable; a class struct that has a size (types.tsv) gets the vftable pointer at +0.

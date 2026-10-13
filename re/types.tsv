@@ -1,0 +1,131 @@
+# Struct layouts for TP.exe. Applied by tools/ghidra/ApplyNames.java (New Game+ skill); see re/deep-pass.md.
+#
+# Struct <TAB> 0xOFFSET <TAB> ctype <TAB> field <TAB> note
+# Struct <TAB> size <TAB> 0xSIZE                      object size (e.g. from operator new before the ctor)
+# Struct <TAB> base <TAB> BaseStruct                  flatten BaseStruct's fields in first
+# Struct <TAB> desc <TAB> <TAB> <TAB> text            struct comment
+#
+# - A struct named like a class namespace in names.tsv (Widget, Button, FrontEnd, CursorTracker, ...: the
+#   Class::vftable lines) is that class's structure, so its __thiscall methods see `this` as Class *.
+#   TPWVtables.java puts the vftable pointer at +0 of a class struct that has a size line here.
+# - ctype: char, short, int, unsigned ..., byte, word, dword, float, double, bool, void, undefined4, a
+#   struct name, or a Windows SDK type, with '*' and [N].
+# - Notes start with H/M/L (see names.tsv) and name the report.
+
+# ---- game clock (g_GameTimer 0x00785970). Read from the code in the deep pass (H). frame-timing.md 5.1 had
+# +0x00 as "status flags" (it is an unused base clock), missed +0x44..+0x74 (offsets, saved times, the real-time
+# clock at +0x50) and described fixed-step mode as capture-only: Game_Init also turns it on (32 fps) for start-up
+# and the intro movies, until front-end init turns it off; in the park it is on only while g_CaptureEveryFrame.
+GameTimer	desc			H: game clock. Timer_GetGameTimeMs = (fixedStep ? fixedTime : unpaused scaled time + fixedOffset) + setOffset
+GameTimer	size	0x78
+GameTimer	0x00	int	baseLastMs	H: Clock_Init zeroes it; unused by the scaled clock
+GameTimer	0x08	double	baseAccumMs	H: Clock_Init zeroes it
+GameTimer	0x10	int	lastSampleMs	H: last Platform_GetGameTimeMs sample (Timer_UpdateAccumulatedTime)
+GameTimer	0x18	double	scaledMs	H: accumulated real ms times speed
+GameTimer	0x20	double	speed	H: game speed multiplier, 1.0 (Timer_Construct)
+GameTimer	0x28	int	pauseSampleMs	H: scaled time when paused (Timer_Pause)
+GameTimer	0x2c	int	pausedTotalMs	H: total paused scaled time
+GameTimer	0x30	int	paused	H: Timer_IsPaused
+GameTimer	0x38	int	fixedStep	H: 1 = fixed-step mode: on from Game_Init (32 fps) until front-end init (0x0054e5ad); in the park on only while g_CaptureEveryFrame
+GameTimer	0x3c	int	fixedTimeMs	H: returned by Timer_GetTime in fixed-step mode; += stepMs per frame (Timer_AdvanceFixedStep)
+GameTimer	0x40	int	stepMs	H: 1000/fps (31 for the 32 fps Game_Init passes)
+GameTimer	0x44	int	fixedOffsetMs	H: keeps time continuous when fixed-step mode ends
+GameTimer	0x48	int	setOffsetMs	H: Timer_SetFromSaved
+GameTimer	0x4c	int	savedTimeMs	H: Timer_SaveTimes / savegame
+GameTimer	0x50	RealClock	real	H: unscaled clock (Timer_GetRealTime = RealClock_GetTime(this+0x50))
+
+RealClock	desc			H: unscaled pausable clock embedded at GameTimer+0x50
+RealClock	size	0x28
+RealClock	0x00	int	lastMs	H: last sample (RealClock_Sample)
+RealClock	0x08	double	accumMs	H: accumulated real ms
+RealClock	0x10	int	pauseSampleMs	H
+RealClock	0x14	int	pausedTotalMs	H
+RealClock	0x18	int	paused	H
+RealClock	0x20	int	offsetMs	H: RealClock_SetFromSaved
+RealClock	0x24	int	savedTimeMs	H: Timer_SaveTimes / savegame
+
+# ---- settings (g_Config 0x0078d8d8; startup-and-switches.md 6, frontend-menus.md 2)
+Config	desc			H: settings object; first 0x20 bytes after the version dword = save\config.tcf
+Config	size	0x98
+Config	0x00	int	accel3D	H: 0 software renderer (4), 1 Direct3D (1)
+Config	0x04	int	resolution	H: options resolution 0 512x384, 1 640x480, 2 800x600 (used when RESOLUTION <= 0)
+Config	0x08	int	detail	H: 0/1/2 low/med/high .sam
+Config	0x0c	int	videoCard	H: DirectDraw device index
+Config	0x10	byte	sfxEnable	M: Options toggle next to slider 0x1d4d8 (not in config.tcf)
+Config	0x14	int	sfxVolume	M: Options slider 0x1d4d8 -> Sound_SetSfxVolume
+Config	0x18	byte	musicEnable	M
+Config	0x1c	int	musicVolume	M: slider 0x1d4da -> Sound_SetMusicVolume
+Config	0x20	byte	speechEnable	M
+Config	0x24	int	speechVolume	M: slider 0x1d4dc -> Sound_SetSpeechVolume
+Config	0x28	byte	movieEnable	H: MovieVolume enable byte
+Config	0x2c	int	movieVolume	H: percent
+Config	0x30	int	soundQuality	M: labelled SoundQuality by the loader; feeds options slider 0x1d4e0
+Config	0x36	byte	uiFlagCtrlH	L: toggled by Ctrl+H (Key_CtrlH_ToggleUiFlag)
+Config	0x3c	int[15]	backup	H: Config_Backup / Config_Restore
+Config	0x78	byte[24]	dialogTcf	H: dialog.tcf fields (DialogTcf_Load); layout in startup-and-switches.md 1
+Config	0x90	int	dialogTcfLoaded	H: 1 when dialog.tcf loaded (0x0078d968)
+Config	0x94	int	changeLevel	H: Config_ComputeChangeLevel: 1 audio, 2 restart
+
+# ---- widgets (frontend-menus.md 1.4, mouse-input.md 2.4)
+Widget	desc			H: UI widget, type 1 WINDOW (Widget_BaseCtor, vtable 0x00705980); virtual 2048x1536 coordinates
+Widget	size	0x138
+Widget	0x04	byte	dying	H: set while being destroyed; the dispatcher skips such targets
+Widget	0x0c	short	x1	H: rect (shorts inside a Rect at +8)
+Widget	0x0e	short	y1	H
+Widget	0x10	short	x2	H
+Widget	0x12	short	y2	H
+Widget	0x2c	short[4]	textRect	H: layout op 3
+Widget	0x48	int	flags	H: bit0 visible, bit1 ignored by hit test
+Widget	0x4c	void *	font	H: Widget_SetFont
+Widget	0x54	Widget *	next	H: next sibling
+Widget	0x58	Widget *	prev	H: previous sibling
+Widget	0x5c	Widget *	firstChild	H
+Widget	0x60	Widget *	parent	H: Widget_GetParent
+Widget	0x8c	int	id	H: Widget_GetId
+Widget	0x98	void *	image	H: Widget_SetImage (background renderer)
+Widget	0x9c	TextRenderer *	textRenderer	H: Widget_SetTextRenderer
+Widget	0xa0	int[16]	userData	H: Widget_SetUserData / GetUserData
+Widget	0xe0	short	depth	M: draw order (Widget_SetDepth)
+Widget	0x114	void *	handler	H: proc int cdecl(Widget *, int msg, int a, int b) (Widget_SetHandler)
+Widget	0x118	void *	classProc	H: called by Widget_DefProc
+Widget	0x11c	int	pressedButton	H: recorded by Widget_DefProc on 0x10005
+
+Button	desc			H: type 2 BUTTON (Button_Ctor, vtable 0x00705a50)
+Button	base	Widget
+Button	size	0x15c
+
+TextRenderer	desc			H: text renderer (TextRenderer_Ctor, vtable 0x006ff530)
+TextRenderer	size	0x1a4
+
+TextMenu	desc			H: the Esc-menu text-button list (frontend-menus.md 3)
+TextMenu	size	0x14
+TextMenu	0x00	void *	itemProc	H
+TextMenu	0x04	int	itemCount	H
+TextMenu	0x08	int	unk08	H: -1
+TextMenu	0x0c	int	shown	H
+TextMenu	0x10	Widget *	container	H: full-screen "lolight" container
+
+# ---- front end (frontend-menus.md 1)
+FrontEnd	desc			H: front-end manager (FrontEnd_Ctor, vtable 0x007029f0), g_FrontEnd
+FrontEnd	size	0x38
+FrontEnd	0x04	Widget *	root	M: front-end root widget ([g_FrontEnd+4]->Show(0) in FE_PlayerSelect_Build)
+FrontEnd	0x14	int	runState	H: 1 running, 3 quit (FrontEnd_RequestQuit)
+FrontEnd	0x18	void *	components	H: component list
+
+# ---- input (mouse-input.md 2.2)
+CursorTracker	desc			H: DirectInput cursor tracker (CursorTracker_Ctor, vtable 0x00703cc8) at g_InputManager+0x64
+CursorTracker	0x0c	void *	sprite	H: colour cursor sprite it moves
+CursorTracker	0x10	int	x	H: client pixels
+CursorTracker	0x14	int	y	H
+CursorTracker	0x20	float	fx	H: accumulated position
+CursorTracker	0x24	float	fy	H
+CursorTracker	0x30	undefined4	sensitivity	H
+CursorTracker	0x34	undefined4[4]	clip	H: 0,0,W-1,H-1 (InputMgr_SetCursorClip)
+CursorTracker	0x50	int	accelThreshold1	H: SPI_GETMOUSE
+CursorTracker	0x54	int	accelThreshold2	H
+CursorTracker	0x58	int	accelMode	H
+
+InputManager	desc			H: engine input manager g_InputManager 0x00fa6e40
+InputManager	0x58	DIKeyboard *	keyboard	H
+InputManager	0x5c	DIMouse *	mouse	H
+InputManager	0x64	CursorTracker *	tracker	H
