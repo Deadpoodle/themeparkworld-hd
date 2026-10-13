@@ -99,6 +99,7 @@ const std::vector<Option>& Options() {
          {{"60", L"60"}, {"30", L"30"}, {"120", L"120"}, {"144", L"144"}, {"0", L"Off"}}},
         {L"FPS counter (F2)", "Display", "ShowFps", "0", {{"0", L"Off"}, {"1", L"On"}}},
         {L"Sharper UI art", "Display", "SharpUI", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Sharper movies", "Display", "SharpMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Resume after Alt+Tab", "Input", "ResumeOnFocus", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Alt+F4 quits", "Input", "AltF4", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: park music", "Audio", "LevelMusicFix", "1", {{"1", L"On"}, {"0", L"Off"}}},

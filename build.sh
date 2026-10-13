@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")"
 CXX=${CXX:-/c/msys64/mingw32/bin/g++.exe}
 mkdir -p build
-"$CXX" -std=c++17 -O2 -Wall -Wextra -Wno-cast-function-type -shared -static -s \
-    -o build/wsock32.dll src/main.cpp src/registry.cpp src/headless.cpp src/display.cpp src/framecap.cpp src/ddtrace.cpp src/compat.cpp src/prof.cpp src/input.cpp src/window.cpp src/watch.cpp src/settings.cpp src/music.cpp src/fps.cpp src/texhd.cpp src/proxy.cpp src/wsock32.def \
-    -lole32 -luuid -lwindowscodecs -lwinmm -lversion -lgdi32 -luser32 -lkernel32
+"$CXX" -std=c++17 -O2 -msse2 -mfpmath=sse -Wall -Wextra -Wno-cast-function-type -shared -static -s \
+    -o build/wsock32.dll src/main.cpp src/registry.cpp src/headless.cpp src/display.cpp src/framecap.cpp src/ddtrace.cpp src/compat.cpp src/prof.cpp src/input.cpp src/window.cpp src/watch.cpp src/settings.cpp src/music.cpp src/fps.cpp src/texhd.cpp src/movie.cpp src/proxy.cpp src/wsock32.def \
+    -lole32 -luuid -lwindowscodecs -ldxguid -lwinmm -lversion -lgdi32 -luser32 -lkernel32
 echo "built build/wsock32.dll"
