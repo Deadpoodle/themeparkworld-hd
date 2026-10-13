@@ -37,7 +37,7 @@ def dump(pe):
     md = Cs(CS_ARCH_X86, CS_MODE_32)
     base = pe.OPTIONAL_HEADER.ImageBase
     out = os.path.join(ROOT, "re", "text.asm")
-    with open(out, "w", encoding="ascii") as f:
+    with open(out, "w", encoding="ascii", newline="\n") as f:  # LF: grep's $ must match
         for s in pe.sections:
             name = s.Name.rstrip(b"\0").decode()
             if name not in CODE_SECTIONS:

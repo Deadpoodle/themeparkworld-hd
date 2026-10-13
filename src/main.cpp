@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 #include "display.h"
 #include "framecap.h"
@@ -135,6 +136,32 @@ void PinToOneCpu() {
     Log("pinned to one CPU (mask %#lx)", (unsigned long)one);
 }
 
+// [Debug] Patch=addr:expect:new; ... (hex bytes) for experiments, e.g.
+// 5d8bf5:ffdd44ff:ff00ffff. Each is written only if `expect` is there.
+std::vector<uint8_t> Hex(const std::string& s) {
+    std::vector<uint8_t> out;
+    for (size_t i = 0; i + 1 < s.size(); i += 2) out.push_back((uint8_t)strtoul(s.substr(i, 2).c_str(), nullptr, 16));
+    return out;
+}
+
+void ApplyDebugPatches() {
+    char buf[1024];
+    GetPrivateProfileStringA("Debug", "Patch", "", buf, sizeof buf, IniPath().c_str());
+    std::string all = buf;
+    size_t i = 0;
+    while (i < all.size()) {
+        size_t end = all.find(';', i);
+        std::string item = all.substr(i, end == std::string::npos ? std::string::npos : end - i);
+        i = end == std::string::npos ? all.size() : end + 1;
+        size_t c1 = item.find(':'), c2 = item.find(':', c1 + 1);
+        if (c1 == std::string::npos || c2 == std::string::npos) continue;
+        uintptr_t addr = strtoul(item.substr(0, c1).c_str(), nullptr, 16);
+        std::vector<uint8_t> expect = Hex(item.substr(c1 + 1, c2 - c1 - 1)), now = Hex(item.substr(c2 + 1));
+        bool ok = expect.size() == now.size() && !now.empty() && hook::Patch(addr, expect.data(), now.data(), now.size());
+        Log("debug patch %#x (%u bytes): %s", (unsigned)addr, (unsigned)now.size(), ok ? "applied" : "NOT applied");
+    }
+}
+
 void Init() {
     char path[MAX_PATH];
     GetModuleFileNameA(nullptr, path, MAX_PATH);
@@ -174,6 +201,8 @@ void Init() {
     else Log("display: Resolution=%s not understood; original kept", res);
 
     framecap::Install(IniInt("Display", "MaxFPS", 60), headlessMode || IniInt("Debug", "LogFPS", 0), Log);
+
+    ApplyDebugPatches();
 
     if (headlessMode) {
         headless::Options opt;

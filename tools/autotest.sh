@@ -29,6 +29,7 @@ c["Debug"]["Script"] = script
 if "Display" not in c: c["Display"] = {}
 c["Display"]["Resolution"] = os.environ.get("RES", "auto")
 c["Display"]["MaxFPS"] = os.environ.get("MAXFPS", "60")
+c["Debug"]["Patch"] = os.environ.get("PATCH", "")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &
