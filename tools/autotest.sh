@@ -32,6 +32,7 @@ c["Display"]["Resolution"] = os.environ.get("RES", "auto")
 c["Display"]["MaxFPS"] = os.environ.get("MAXFPS", "60")
 c["Debug"]["Patch"] = os.environ.get("PATCH", "")
 c["Debug"]["DDTrace"] = os.environ.get("DDTRACE", "0")
+c["Debug"]["Profile"] = os.environ.get("PROFILE", "0")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &

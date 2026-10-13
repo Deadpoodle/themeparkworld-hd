@@ -15,6 +15,7 @@
 #include "game.h"
 #include "headless.h"
 #include "hook.h"
+#include "prof.h"
 #include "registry.h"
 #include "version.h"
 
@@ -208,10 +209,12 @@ void Init() {
     if (display::Parse(res, &size)) display::Install(size, Log);
     else Log("display: Resolution=%s not understood; original kept", res);
 
-    framecap::Install(IniInt("Display", "MaxFPS", 60), testMode || IniInt("Debug", "LogFPS", 0), Log);
+    framecap::Install(IniInt("Display", "MaxFPS", 60),
+                      testMode || IniInt("Debug", "LogFPS", 0) || IniInt("Debug", "Profile", 0), Log);
 
     ApplyDebugPatches();
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
+    if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
 
     if (testMode) {
         headless::Options opt;
