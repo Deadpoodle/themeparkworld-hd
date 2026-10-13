@@ -80,6 +80,15 @@ constexpr uintptr_t MovieFillRetry2 = 0x51b240;
 constexpr uintptr_t MapDxError = 0x56a770;
 constexpr uint8_t MapDxErrorBytes[] = {0x8b, 0x44, 0x24, 0x04, 0x3d, 0x05, 0x40, 0x00, 0x80};
 
+// Full-screen present by Blt (DirectDraw_Flip 0x564210, path 0x564275):
+// flags = ~[0x8bcbc8] & 1, meant as "wait" but 1 is DDBLT_ALPHADEST for Blt
+// (DDFLIP_WAIT is 1 only for Flip). Windows' DirectDraw ignores it; dgVoodoo2
+// rejects the Blt (DDERR_UNSUPPORTED), so frames never reach the screen.
+constexpr uintptr_t PresentBltFlags = 0x56427e;
+// not edx; mov ecx, [eax]; and edx, 1  ->  mov edx, DDBLT_WAIT; mov ecx, [eax]
+constexpr uint8_t PresentBltFlagsBytes[] = {0xf7, 0xd2, 0x8b, 0x08, 0x83, 0xe2, 0x01};
+constexpr uint8_t PresentBltWaitBytes[] = {0xba, 0x00, 0x00, 0x00, 0x01, 0x8b, 0x08};
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

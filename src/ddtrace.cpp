@@ -39,6 +39,28 @@ HRESULT __stdcall h_AddAttached(void* self, void* other) {
     return hr;
 }
 
+// Surface4::Blt (5) and Flip (11): log failures, the first 12 of each.
+typedef HRESULT(__stdcall* BltFn)(void*, void*, void*, void*, DWORD, void*);
+BltFn o_Blt;
+HRESULT __stdcall h_Blt(void* self, void* dr, void* src, void* sr, DWORD flags, void* fx) {
+    HRESULT hr = o_Blt(self, dr, src, sr, flags, fx);
+    static int n;
+    if (FAILED(hr) && n++ < 12)
+        g_log("ddtrace: Surface4::Blt(%p <- %p, flags %#lx) -> %#lx (from %#x)", self, src, (unsigned long)flags,
+              (unsigned long)hr, (unsigned)(uintptr_t)__builtin_return_address(0));
+    return hr;
+}
+typedef HRESULT(__stdcall* FlipFn)(void*, void*, DWORD);
+FlipFn o_Flip;
+HRESULT __stdcall h_Flip(void* self, void* target, DWORD flags) {
+    HRESULT hr = o_Flip(self, target, flags);
+    static int n;
+    if (FAILED(hr) && n++ < 12)
+        g_log("ddtrace: Surface4::Flip(%p, flags %#lx) -> %#lx (from %#x)", self, (unsigned long)flags,
+              (unsigned long)hr, (unsigned)(uintptr_t)__builtin_return_address(0));
+    return hr;
+}
+
 typedef HRESULT(__stdcall* CreateSurfaceFn)(void*, void* desc, void** out, void*);
 CreateSurfaceFn o_CreateSurface;
 HRESULT __stdcall h_CreateSurface(void* dd, void* desc, void** out, void* outer) {
@@ -47,8 +69,11 @@ HRESULT __stdcall h_CreateSurface(void* dd, void* desc, void** out, void* outer)
     const DWORD* pf = d + 0x48 / 4;  // DDPIXELFORMAT
     g_log("ddtrace: DD4::CreateSurface flags %#lx %lux%lu caps %#lx caps2 %#lx pf flags %#lx bits %lu -> %#lx (%p)",
           d[1], d[3], d[2], d[0x68 / 4], d[0x6c / 4], pf[1], pf[3], (unsigned long)hr, out ? *out : nullptr);
-    if (SUCCEEDED(hr) && out && *out && !o_AddAttached)
+    if (SUCCEEDED(hr) && out && *out && !o_AddAttached) {
         PatchSlot(*out, 3, (void*)&h_AddAttached, (void**)&o_AddAttached);
+        PatchSlot(*out, 5, (void*)&h_Blt, (void**)&o_Blt);
+        PatchSlot(*out, 11, (void*)&h_Flip, (void**)&o_Flip);
+    }
     return hr;
 }
 

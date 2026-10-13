@@ -15,6 +15,7 @@
 #include "game.h"
 #include "headless.h"
 #include "hook.h"
+#include "input.h"
 #include "prof.h"
 #include "registry.h"
 #include "version.h"
@@ -204,6 +205,7 @@ void Init() {
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
     display::Size size;
     compat::Install(Log);
+    input::Install(IniInt("Input", "AltF4", 1) != 0, Log);
     display::InstallSoftwareClearFix(Log);
     display::DetectWrapper(g_dir.c_str(), Log);  // a bug fix in every mode: never wanted
     if (display::Parse(res, &size)) display::Install(size, Log);

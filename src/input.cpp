@@ -1,0 +1,49 @@
+// [Input] AltF4=1: Alt+F4 quits, as in every modern program.
+//
+// The game's window procedure (0x46bcb0) swallows WM_SYSKEYDOWN F4, so
+// Alt+F4 did nothing. The game window is subclassed when it is created and
+// Alt+F4 posts WM_CLOSE, which takes the game's own shutdown path (WM_DESTROY
+// -> quit message), the same one the test harness uses.
+#include "input.h"
+
+#include <windows.h>
+
+#include <cstring>
+
+#include "game.h"
+#include "hook.h"
+
+namespace input {
+namespace {
+
+void (*g_log)(const char*, ...);
+WNDPROC g_orig;
+decltype(&CreateWindowExA) o_CreateWindowExA;
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    if (msg == WM_SYSKEYDOWN && wp == VK_F4) {
+        g_log("input: Alt+F4, closing");
+        PostMessageA(hwnd, WM_CLOSE, 0, 0);
+        return 0;
+    }
+    return CallWindowProcA(g_orig, hwnd, msg, wp, lp);
+}
+
+HWND WINAPI h_CreateWindowExA(DWORD ex, LPCSTR cls, LPCSTR name, DWORD style, int x, int y, int w, int h,
+                              HWND parent, HMENU menu, HINSTANCE inst, LPVOID param) {
+    HWND hwnd = o_CreateWindowExA(ex, cls, name, style, x, y, w, h, parent, menu, inst, param);
+    if (hwnd && !parent && !g_orig && HIWORD(cls) && strcmp(cls, game::WindowClass) == 0)
+        g_orig = (WNDPROC)SetWindowLongA(hwnd, GWL_WNDPROC, (LONG)(LONG_PTR)&WndProc);
+    return hwnd;
+}
+
+}  // namespace
+
+void Install(bool altF4, void (*log)(const char*, ...)) {
+    g_log = log;
+    if (!altF4) return;
+    bool ok = hook::Import(game::IatCreateWindowExA, &h_CreateWindowExA, &o_CreateWindowExA);
+    log("input: Alt+F4 quits %s", ok ? "on" : "HOOK FAILED");
+}
+
+}  // namespace input

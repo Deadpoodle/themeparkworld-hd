@@ -173,6 +173,16 @@ void Click(int x, int y) {
     PostMessageA(g_hwnd, WM_LBUTTONUP, 0, pos);
 }
 
+// Alt+F4 as Windows delivers it: WM_SYSKEYDOWN with the context bit (Alt held).
+void AltF4() {
+    LPARAM scan = (LPARAM)MapVirtualKeyA(VK_F4, MAPVK_VK_TO_VSC) << 16;
+    g_down[VK_MENU] = true;
+    PostMessageA(g_hwnd, WM_SYSKEYDOWN, VK_F4, scan | 1 | (1u << 29));
+    Sleep(150);
+    PostMessageA(g_hwnd, WM_SYSKEYUP, VK_F4, scan | 1 | (1u << 29) | (1u << 30) | (1u << 31));
+    g_down[VK_MENU] = false;
+}
+
 void Type(const std::string& text) {
     for (char c : text) {
         PostMessageA(g_hwnd, WM_CHAR, (WPARAM)(unsigned char)c, 1);
@@ -183,7 +193,7 @@ void Type(const std::string& text) {
 // Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
 // timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
 // letter or digit, or a virtual-key code (0x..).
-enum class Kind { Key, Shot, Click, Type };
+enum class Kind { Key, Shot, Click, Type, AltF4 };
 struct Step {
     DWORD ms;
     Kind kind;
@@ -220,6 +230,8 @@ void ParseScript(const std::string& s) {
         for (char c : what) lower += (char)tolower((unsigned char)c);
         if (lower == "shot") {
             st.kind = Kind::Shot;
+        } else if (lower == "altf4") {
+            st.kind = Kind::AltF4;
         } else if (lower.rfind("click ", 0) == 0 && sscanf(lower.c_str() + 6, "%d %d", &st.x, &st.y) == 2) {
             st.kind = Kind::Click;
         } else if (lower.rfind("type ", 0) == 0) {
@@ -254,6 +266,10 @@ DWORD WINAPI Worker(LPVOID) {
                 case Kind::Click:
                     g_log("headless: script click %d,%d", s.x, s.y);
                     Click(s.x, s.y);
+                    break;
+                case Kind::AltF4:
+                    g_log("headless: script Alt+F4");
+                    AltF4();
                     break;
                 case Kind::Type:
                     g_log("headless: script type \"%s\"", s.text.c_str());

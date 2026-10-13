@@ -25,6 +25,12 @@ void Install(void (*log)(const char*, ...)) {
     const uint8_t loop[] = {0x75, 0xe9}, once[] = {0x90, 0x90};
     bool ok = hook::Patch(game::MovieFillRetry1, loop, once, 2) && hook::Patch(game::MovieFillRetry2, loop, once, 2);
     log("compat: movie clear retry loops bounded %s", ok ? "on" : "patch FAILED");
+
+    // Full-screen present by Blt asked for DDBLT_ALPHADEST (1) where it meant
+    // DDBLT_WAIT; dgVoodoo2 refuses it and almost no frame is shown.
+    log("compat: present Blt waits instead of DDBLT_ALPHADEST %s",
+        hook::Patch(game::PresentBltFlags, game::PresentBltFlagsBytes, game::PresentBltWaitBytes, sizeof game::PresentBltWaitBytes) ? "on"
+                                                                                                    : "patch FAILED");
 }
 
 }  // namespace compat
