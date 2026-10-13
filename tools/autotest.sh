@@ -2,6 +2,8 @@
 # Build, install into testrun (the automated-test copy, always hidden) and run it
 # headless. Never touches testgame (the player's copy).
 # Usage: autotest.sh [seconds] [screenshot-every] [script]   e.g. autotest.sh 40 0 "4:esc,8:esc,12:shot"
+#        RES=1920x1080 MAXFPS=60 autotest.sh   [Display] Resolution and MaxFPS (defaults auto, 60)
+#        ARGS=/bwcursor autotest.sh    game command line
 #        TESTDIR=testrun-x autotest.sh   another hidden test copy, so runs can go side by side
 set -e
 cd "$(dirname "$0")/.."
@@ -14,7 +16,7 @@ cp build/wsock32.dll "$T/"
 rm -f "$T"/Scr*.tga "$T"/ThemeParkWorldHD.log
 [ -f "$T/ThemeParkWorldHD.ini" ] || printf '[Debug]\r\n' > "$T/ThemeParkWorldHD.ini"
 python -P - "$T/ThemeParkWorldHD.ini" "$SECS" "$SHOT" "$SCRIPT" <<'EOF'
-import configparser, sys
+import configparser, os, sys
 p, secs, shot, script = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
 c = configparser.ConfigParser(comment_prefixes=(";",), inline_comment_prefixes=None)
 c.optionxform = str
@@ -24,10 +26,13 @@ c["Debug"]["Headless"] = "1"
 c["Debug"]["ScreenshotEvery"] = str(shot)
 c["Debug"]["QuitAfter"] = str(max(secs - 18, 5))
 c["Debug"]["Script"] = script
+if "Display" not in c: c["Display"] = {}
+c["Display"]["Resolution"] = os.environ.get("RES", "auto")
+c["Display"]["MaxFPS"] = os.environ.get("MAXFPS", "60")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &
-powershell -NoProfile -File tools/smoke.ps1 -Seconds "$SECS" -Dir "$T"
+powershell -NoProfile -File tools/smoke.ps1 -Seconds "$SECS" -Dir "$T" -GameArgs "${ARGS:-}"
 wait
 cat build/vis.txt
 cat "$T/ThemeParkWorldHD.log"

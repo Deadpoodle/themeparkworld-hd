@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <string>
 
+#include "display.h"
+#include "framecap.h"
 #include "game.h"
 #include "headless.h"
 #include "hook.h"
@@ -46,8 +48,13 @@ const char kDefaultIni[] =
     "; Theme Park World HD settings. Delete this file to get the defaults back.\r\n"
     "\r\n"
     "[Display]\r\n"
+    "; Game resolution: auto (the desktop's), WxH (e.g. 1920x1080), or original (the game's own\r\n"
+    "; 640x480, or what data\\Resolution.sam says)\r\n"
+    "Resolution=auto\r\n"
     "; 1 = run in a window instead of full screen (the game's own window, not yet scaled)\r\n"
     "Windowed=0\r\n"
+    "; Frame-rate cap. Above about 60 the camera and animations run too fast. 0 = no cap\r\n"
+    "MaxFPS=60\r\n"
     "\r\n"
     "[Compat]\r\n"
     "; 1 = answer the game's registry read (its language) itself, so it needs no registry keys\r\n"
@@ -62,7 +69,10 @@ const char kDefaultIni[] =
     "; Switches for the automated tests. Leave them at 0.\r\n"
     "Headless=0\r\n"
     "ScreenshotEvery=0\r\n"
-    "QuitAfter=0\r\n";
+    "QuitAfter=0\r\n"
+    "Script=\r\n"
+    "; 1 = write the frame rate to the log every 5 s\r\n"
+    "LogFPS=0\r\n";
 
 void WriteDefaultIni() {
     if (GetFileAttributesA(IniPath().c_str()) != INVALID_FILE_ATTRIBUTES) return;
@@ -156,6 +166,15 @@ void Init() {
         Log("display: windowed %s", ok ? "on" : "patch FAILED");
         if (!ok && headlessMode) ExitProcess(2);
     }
+
+    char res[64];
+    GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
+    display::Size size;
+    if (display::Parse(res, &size)) display::Install(size, Log);
+    else Log("display: Resolution=%s not understood; original kept", res);
+
+    framecap::Install(IniInt("Display", "MaxFPS", 60), headlessMode || IniInt("Debug", "LogFPS", 0), Log);
+
     if (headlessMode) {
         headless::Options opt;
         opt.screenshotEvery = IniInt("Debug", "ScreenshotEvery", 0);

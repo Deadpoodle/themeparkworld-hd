@@ -38,6 +38,24 @@ constexpr uint8_t FontSelectTierBytes[] = {0x8b, 0x44, 0x24, 0x04, 0x3d, 0x00, 0
 // the next free Scr%05ld.tga in the working directory. Game thread only.
 constexpr uintptr_t SaveScreenshotTGA = 0x550460;
 
+// Resolution and fonts (re/text-rendering.md). The font loader picks its tier
+// from the RESOLUTION setting, the selector from the real width; WinMain calls
+// them in this order on the first idle tick:
+constexpr uintptr_t CallLoadTextTables = 0x45ab6f;  // call Lang_LoadTextTables (fastcall, ecx = 0x78b530)
+constexpr uintptr_t LoadTextTables = 0x419710;
+constexpr uintptr_t CallVideoInitResolution = 0x45abbb;  // call Video_InitResolution (void)
+constexpr uintptr_t VideoInitResolution = 0x449ec0;
+// RESOLUTION 7 (2048x1536) branch of Video_InitResolution: the only slot with
+// its own stores that the loader maps to the large-font tier 3.
+constexpr uintptr_t Res7WidthImm = 0x44a0ed + 6;   // mov [0x7a1968], 0x800
+constexpr uintptr_t Res7HeightImm = 0x44a0f7 + 6;  // mov [0x7a1930], 0x600
+constexpr uintptr_t ResolutionSetting = 0x7858ec;  // Resolution.sam RESOLUTION (0 = options screen)
+
+// Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
+// the window lacks focus). The main loop reaches it through this thunk.
+constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730
+constexpr uintptr_t Present = 0x583730;
+
 // --- Globals -------------------------------------------------------------
 constexpr uintptr_t ScreenWidth = 0x7a1968;
 constexpr uintptr_t ScreenHeight = 0x7a1930;

@@ -16,6 +16,7 @@
 #include <windows.h>
 
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -145,12 +146,38 @@ void TapKey(UINT vk) {
     PostMessageA(g_hwnd, WM_KEYUP, vk, scan | 1 | (1u << 30) | (1u << 31));
 }
 
-// Script: "3:esc, 6:space, 9:shot" = at 3 s press Esc, at 6 s Space, at 9 s a
-// screenshot. Keys: esc, space, enter, f1..f12, a single letter or digit, or
-// a virtual-key code (0x..).
+// Mouse clicks as the game sees them: move first, press a few frames later
+// (games compare the press with the previous frame's position), with the
+// button held in the virtual key state too. x, y are client pixels.
+void Click(int x, int y) {
+    LPARAM pos = MAKELPARAM(x, y);
+    PostMessageA(g_hwnd, WM_MOUSEMOVE, 0, pos);
+    Sleep(150);
+    PostMessageA(g_hwnd, WM_MOUSEMOVE, 0, pos);
+    Sleep(100);
+    g_down[VK_LBUTTON] = true;
+    PostMessageA(g_hwnd, WM_LBUTTONDOWN, MK_LBUTTON, pos);
+    Sleep(150);
+    g_down[VK_LBUTTON] = false;
+    PostMessageA(g_hwnd, WM_LBUTTONUP, 0, pos);
+}
+
+void Type(const std::string& text) {
+    for (char c : text) {
+        PostMessageA(g_hwnd, WM_CHAR, (WPARAM)(unsigned char)c, 1);
+        Sleep(60);
+    }
+}
+
+// Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
+// timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
+// letter or digit, or a virtual-key code (0x..).
+enum class Kind { Key, Shot, Click, Type };
 struct Step {
     DWORD ms;
-    int vk;  // 0 = screenshot
+    Kind kind;
+    int vk, x, y;
+    std::string text;
 };
 std::vector<Step> g_script;
 
@@ -164,6 +191,11 @@ int KeyCode(const std::string& k) {
     return -1;
 }
 
+std::string Trim(const std::string& s) {
+    size_t a = s.find_first_not_of(" \t"), b = s.find_last_not_of(" \t");
+    return a == std::string::npos ? "" : s.substr(a, b - a + 1);
+}
+
 void ParseScript(const std::string& s) {
     size_t i = 0;
     while (i < s.size()) {
@@ -172,16 +204,21 @@ void ParseScript(const std::string& s) {
         i = end == std::string::npos ? s.size() : end + 1;
         size_t colon = item.find(':');
         if (colon == std::string::npos) continue;
-        double t = atof(item.c_str());
-        std::string what;
-        for (char c : item.substr(colon + 1))
-            if (!isspace((unsigned char)c)) what += (char)tolower((unsigned char)c);
-        int vk = what == "shot" ? 0 : KeyCode(what);
-        if (vk < 0) {
+        Step st{(DWORD)(atof(item.c_str()) * 1000), Kind::Key, 0, 0, 0, ""};
+        std::string what = Trim(item.substr(colon + 1)), lower;
+        for (char c : what) lower += (char)tolower((unsigned char)c);
+        if (lower == "shot") {
+            st.kind = Kind::Shot;
+        } else if (lower.rfind("click ", 0) == 0 && sscanf(lower.c_str() + 6, "%d %d", &st.x, &st.y) == 2) {
+            st.kind = Kind::Click;
+        } else if (lower.rfind("type ", 0) == 0) {
+            st.kind = Kind::Type;
+            st.text = what.substr(5);
+        } else if ((st.vk = KeyCode(lower)) < 0) {
             g_log("headless: script step \"%s\" not understood", item.c_str());
             continue;
         }
-        g_script.push_back({(DWORD)(t * 1000), vk});
+        g_script.push_back(st);
     }
 }
 
@@ -195,11 +232,22 @@ DWORD WINAPI Worker(LPVOID) {
         DWORD now = GetTickCount();
         while (g_hwnd && next < g_script.size() && now - start >= g_script[next].ms) {
             const Step& s = g_script[next++];
-            if (s.vk) {
-                g_log("headless: script key %#x", s.vk);
-                TapKey(s.vk);
-            } else {
-                InterlockedIncrement(&g_shotsPending);
+            switch (s.kind) {
+                case Kind::Key:
+                    g_log("headless: script key %#x", s.vk);
+                    TapKey(s.vk);
+                    break;
+                case Kind::Shot:
+                    InterlockedIncrement(&g_shotsPending);
+                    break;
+                case Kind::Click:
+                    g_log("headless: script click %d,%d", s.x, s.y);
+                    Click(s.x, s.y);
+                    break;
+                case Kind::Type:
+                    g_log("headless: script type \"%s\"", s.text.c_str());
+                    Type(s.text);
+                    break;
             }
         }
         if (g_hwnd && g_shotEvery > 0 && now - lastShot >= (DWORD)g_shotEvery * 1000) {
