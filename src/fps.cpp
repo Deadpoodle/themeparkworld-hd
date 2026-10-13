@@ -18,6 +18,7 @@
 #include <cstring>
 
 #include "hook.h"
+#include "lightning.h"
 
 namespace fps {
 namespace {
@@ -180,6 +181,7 @@ void Detect(void* ctx) {
 }
 
 int __fastcall h_Flip(void* ctx, void* unused) {
+    lightning::Tick();
     if (g_detect) Detect(ctx);
     Draw(ctx);
     return reinterpret_cast<int(__fastcall*)(void*, void*)>(kFlip)(ctx, unused);

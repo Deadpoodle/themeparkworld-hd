@@ -24,6 +24,7 @@
 #include "texhd.h"
 #include "movie.h"
 #include "camera.h"
+#include "lightning.h"
 #include "version.h"
 #include "watch.h"
 #include "window.h"
@@ -81,6 +82,9 @@ const char kDefaultIni[] =
     "; 1 = sharper movies: block edges smoothed and the picture enlarged 2x (Lanczos) before it is\r\n"
     "; stretched to the screen. 0 = the original\r\n"
     "SharpMovies=1\r\n"
+    "; Lightning flash (storm scene on the main menu): original (one frame drawn as a colour\r\n"
+    "; negative), soft (a brief brightening instead), or off\r\n"
+    "LightningFlash=original\r\n"
     "\r\n"
     "[Input]\r\n"
     "; 1 = Alt+F4 quits the game (the original ignored it)\r\n"
@@ -268,6 +272,9 @@ void Init() {
     fps::Install(IniInt("Display", "ShowFps", 0) != 0, IniInt("Debug", "FlashDetect", 0) != 0, g_dir.c_str(), Log);
     texhd::Install(g_dir, IniInt("Display", "SharpUI", 1) != 0, IniInt("Debug", "DumpTextures", 0) != 0, Log);
     camera::Install(IniInt("Input", "MaxTurnSpeed", 180), Log);
+    char flash[16];
+    GetPrivateProfileStringA("Display", "LightningFlash", "original", flash, sizeof flash, IniPath().c_str());
+    lightning::Install(lightning::ParseMode(flash), IniInt("Debug", "ForceLightning", 0), Log);
     if (IniInt("Display", "SharpMovies", 1))
         movie::Install(IniInt("Debug", "SaveMovieFrame", 0) ? g_dir.c_str() : nullptr, Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);

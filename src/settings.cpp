@@ -100,6 +100,8 @@ const std::vector<Option>& Options() {
         {L"FPS counter (F2)", "Display", "ShowFps", "0", {{"0", L"Off"}, {"1", L"On"}}},
         {L"Sharper UI art", "Display", "SharpUI", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Sharper movies", "Display", "SharpMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Lightning flash", "Display", "LightningFlash", "original",
+         {{"original", L"Original (negative)"}, {"soft", L"Soft"}, {"off", L"Off"}}},
         {L"Resume after Alt+Tab", "Input", "ResumeOnFocus", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Middle-button turn", "Input", "MaxTurnSpeed", "180",
          {{"180", L"180 deg/s max"}, {"90", L"90 deg/s max"}, {"360", L"360 deg/s max"}, {"0", L"Original"}}},
