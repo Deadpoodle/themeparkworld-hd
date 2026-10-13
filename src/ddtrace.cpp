@@ -7,6 +7,8 @@
 
 #include <windows.h>
 
+#include <cstring>
+
 #include "game.h"
 #include "hook.h"
 
@@ -135,6 +137,16 @@ HRESULT WINAPI h_SSOut(void* ssa, int x, int y, UINT opts, const RECT* clip, int
     return hr;
 }
 
+// Files opened under data\Init (splash/legal/welcome art), to see which tier loads.
+decltype(&CreateFileA) o_CreateFileA;
+HANDLE WINAPI h_CreateFileA(LPCSTR name, DWORD access, DWORD share, LPSECURITY_ATTRIBUTES sa, DWORD disp, DWORD flags,
+                            HANDLE tmpl) {
+    HANDLE h = o_CreateFileA(name, access, share, sa, disp, flags, tmpl);
+    if (name && (strstr(name, "Init") || strstr(name, "init")))
+        g_log("ddtrace: open %s -> %s", name, h == INVALID_HANDLE_VALUE ? "not found" : "ok");
+    return h;
+}
+
 typedef HRESULT(WINAPI* DirectDrawCreateFn)(GUID*, void**, void*);
 DirectDrawCreateFn o_DirectDrawCreate;
 
@@ -163,6 +175,7 @@ HRESULT WINAPI h_DirectDrawCreate(GUID* guid, void** dd, void* outer) {
 void Install(void (*log)(const char*, ...)) {
     g_log = log;
     hook::Import(game::IatDirectDrawCreate, &h_DirectDrawCreate, &o_DirectDrawCreate);
+    hook::Import((uintptr_t)0x6fd0d8, &h_CreateFileA, &o_CreateFileA);  // CreateFileA
     hook::Import((uintptr_t)0x6fd3a8, &h_SSAnalyse, &o_SSAnalyse);  // USP10 ScriptStringAnalyse
     hook::Import((uintptr_t)0x6fd3ac, &h_SSOut, &o_SSOut);          // USP10 ScriptStringOut
     o_MapError = (MapErrorFn)hook::Detour(game::MapDxError, game::MapDxErrorBytes, sizeof game::MapDxErrorBytes,

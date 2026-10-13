@@ -129,6 +129,11 @@ constexpr uint8_t TextureBudgetX8Bytes[] = {0xc1, 0xe0, 0x13};     // shl eax, 1
 // no text (the community bundles shipped the old DLL as usp11.dll for this).
 constexpr uintptr_t IatScriptStringOut = 0x6fd3ac;
 
+// Splash/legal/welcome art folder: data\Init\<width>\ for widths 400, 512,
+// 640, 800 and 1024, else this fallback "640\\" (4 chars + 4 zero bytes, so
+// "1024\\" fits). At our sizes the 640 art was stretched to the screen.
+constexpr uintptr_t InitArtFallback = 0x768dd8;
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

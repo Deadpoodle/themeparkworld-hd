@@ -147,6 +147,12 @@ bool Install(Size size, void (*log)(const char*, ...)) {
         }
         g_setting = 7;
     }
+    // The splash, legal and loading screens: the 1024 art instead of the 640 art.
+    if (size.w > 1024) {
+        const uint8_t from[6] = {'6', '4', '0', '\\', 0, 0}, to[6] = {'1', '0', '2', '4', '\\', 0};
+        log("display: 1024 splash and loading art %s", hook::Patch(game::InitArtFallback, from, to, 6) ? "on" : "patch FAILED");
+    }
+
     // Full screen at 32 bpp: 16-bpp modes at modern sizes are refused by the driver.
     const uint8_t from = 0x0c, to = 0x2c;
     bool deep = hook::Patch(game::DisplayFlagsInitByte2, &from, &to, 1) &&
