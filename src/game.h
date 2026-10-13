@@ -99,6 +99,14 @@ constexpr uintptr_t TimerAccumulate = 0x4033a0;
 constexpr uintptr_t TimerAccumulateRaw = 0x402f40;
 constexpr uint8_t TimerPrologue[] = {0x83, 0xec, 0x08, 0x56, 0x8b, 0xf1};
 
+// Park pause (object 0x786b68): Pause 0x4092a0 (thiscall(reason, bySystem),
+// ret 8), Unpause 0x409300 (thiscall, no args); paused flag at +0x1c, ready
+// when +0x3c == 1. WM_ACTIVATEAPP(FALSE) in a park (no front end, 0xf82884 == 0)
+// pauses (0x46b74c), and nothing unpauses on activation.
+constexpr uintptr_t PauseObject = 0x786b68;
+constexpr uintptr_t Unpause = 0x409300;
+constexpr uintptr_t FrontEnd = 0xf82884;  // g_FrontEnd, 0 in a park
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

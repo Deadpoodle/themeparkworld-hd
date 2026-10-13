@@ -13,7 +13,7 @@
 int main(int argc, char** argv) {
     double secs = argc > 1 ? atof(argv[1]) : 5;
     UINT outputIndex = argc > 2 ? atoi(argv[2]) : 0;
-    const char* saveDir = argc > 3 ? argv[3] : nullptr;  // save every 50 ms, 1/4 size, up to 48 BMPs
+    const char* saveDir = argc > 3 ? argv[3] : nullptr;  // save every 50 ms, 1/4 size, up to 120 BMPs
     int saved = 0;
     LARGE_INTEGER lastSave = {};
     ID3D11Device* dev = nullptr;
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
                         h *= 1099511628211ull;
                     }
                 QueryPerformanceCounter(&t);
-                if (saveDir && saved < 48 && (t.QuadPart - lastSave.QuadPart) * 1000 / f.QuadPart >= 50) {
+                if (saveDir && saved < 120 && (t.QuadPart - lastSave.QuadPart) * 1000 / f.QuadPart >= 50) {
                     lastSave = t;
                     UINT w = d.Width / 4, hgt = d.Height / 4;
                     char path[MAX_PATH];
