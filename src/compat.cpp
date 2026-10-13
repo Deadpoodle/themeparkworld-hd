@@ -38,6 +38,14 @@ int __fastcall h_AccumulateRaw(void* timer, void* unused) {
     return r;
 }
 
+typedef HRESULT(WINAPI* SSOutFn)(void*, int, int, UINT, const RECT*, int, int, BOOL);
+SSOutFn o_ScriptStringOut;
+HRESULT WINAPI h_ScriptStringOut(void* ssa, int x, int y, UINT opts, const RECT* clip, int selMin, int selMax,
+                                 BOOL disabled) {
+    if (!clip) opts &= ~ETO_CLIPPED;  // clipping to nothing: rejected by current Uniscribe
+    return o_ScriptStringOut(ssa, x, y, opts, clip, selMin, selMax, disabled);
+}
+
 }  // namespace
 
 void Install(const Options& opt, void (*log)(const char*, ...)) {
@@ -72,6 +80,10 @@ void Install(const Options& opt, void (*log)(const char*, ...)) {
 
     // Full-screen present by Blt asked for DDBLT_ALPHADEST (1) where it meant
     // DDBLT_WAIT; dgVoodoo2 refuses it and almost no frame is shown.
+    if (opt.signText)
+        log("compat: sign text through current Uniscribe %s",
+            hook::Import(game::IatScriptStringOut, &h_ScriptStringOut, &o_ScriptStringOut) ? "on" : "hook FAILED");
+
     if (opt.textures32)
         log("compat: 32-bit textures %s",
             hook::Patch(game::Texture32Read, game::Texture32ReadBytes, game::Texture32OnBytes, 5) ? "on" : "patch FAILED");

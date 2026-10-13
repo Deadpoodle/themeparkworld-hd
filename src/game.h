@@ -123,6 +123,12 @@ constexpr uintptr_t TextureBudgetShift = 0x58d46d;
 constexpr uint8_t TextureBudgetShiftBytes[] = {0xc1, 0xe0, 0x10};  // shl eax, 16
 constexpr uint8_t TextureBudgetX8Bytes[] = {0xc1, 0xe0, 0x13};     // shl eax, 19
 
+// Ride/world sign text (Uniscribe_RenderTextLineToDIB 0x5eab70) calls
+// ScriptStringOut with ETO_CLIPPED but no clip rectangle. The 1999 Uniscribe
+// on the CD ignored that; current Windows returns E_INVALIDARG, so signs had
+// no text (the community bundles shipped the old DLL as usp11.dll for this).
+constexpr uintptr_t IatScriptStringOut = 0x6fd3ac;
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

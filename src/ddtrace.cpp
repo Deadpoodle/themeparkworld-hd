@@ -106,6 +106,35 @@ const char* __cdecl h_MapError(HRESULT hr) {
     return o_MapError(hr);
 }
 
+// Uniscribe (ride-sign text, Uniscribe_RenderTextLineToDIB 0x5eab70): log the
+// first calls of ScriptStringAnalyse / ScriptStringOut and their results.
+typedef HRESULT(WINAPI* SSAnalyseFn)(HDC, const void*, int, int, int, DWORD, int, void*, void*, const int*, void*,
+                                     const BYTE*, void**);
+SSAnalyseFn o_SSAnalyse;
+HRESULT WINAPI h_SSAnalyse(HDC dc, const void* str, int n, int glyphs, int charset, DWORD flags, int width,
+                           void* control, void* state, const int* dx, void* tabdef, const BYTE* inClass, void** out) {
+    HRESULT hr = o_SSAnalyse(dc, str, n, glyphs, charset, flags, width, control, state, dx, tabdef, inClass, out);
+    static int calls;
+    if (calls++ < 12) {
+        char text[64] = "";
+        if (charset == -1) WideCharToMultiByte(CP_UTF8, 0, (const wchar_t*)str, n < 60 ? n : 60, text, 63, nullptr, nullptr);
+        else lstrcpynA(text, (const char*)str, n + 1 < 63 ? n + 1 : 63);
+        g_log("ddtrace: ScriptStringAnalyse(\"%s\", %d chars, charset %d, flags %#lx) -> %#lx", text, n, charset,
+              (unsigned long)flags, (unsigned long)hr);
+    }
+    return hr;
+}
+typedef HRESULT(WINAPI* SSOutFn)(void*, int, int, UINT, const RECT*, int, int, BOOL);
+SSOutFn o_SSOut;
+HRESULT WINAPI h_SSOut(void* ssa, int x, int y, UINT opts, const RECT* clip, int selMin, int selMax, BOOL disabled) {
+    HRESULT hr = o_SSOut(ssa, x, y, opts, clip, selMin, selMax, disabled);
+    static int calls;
+    if (calls++ < 12)
+        g_log("ddtrace: ScriptStringOut(ssa %p, %d,%d, opts %#x, clip %s, sel %d..%d, disabled %d) -> %#lx", ssa, x, y,
+              opts, clip ? "yes" : "no", selMin, selMax, disabled, (unsigned long)hr);
+    return hr;
+}
+
 typedef HRESULT(WINAPI* DirectDrawCreateFn)(GUID*, void**, void*);
 DirectDrawCreateFn o_DirectDrawCreate;
 
@@ -134,6 +163,8 @@ HRESULT WINAPI h_DirectDrawCreate(GUID* guid, void** dd, void* outer) {
 void Install(void (*log)(const char*, ...)) {
     g_log = log;
     hook::Import(game::IatDirectDrawCreate, &h_DirectDrawCreate, &o_DirectDrawCreate);
+    hook::Import((uintptr_t)0x6fd3a8, &h_SSAnalyse, &o_SSAnalyse);  // USP10 ScriptStringAnalyse
+    hook::Import((uintptr_t)0x6fd3ac, &h_SSOut, &o_SSOut);          // USP10 ScriptStringOut
     o_MapError = (MapErrorFn)hook::Detour(game::MapDxError, game::MapDxErrorBytes, sizeof game::MapDxErrorBytes,
                                           (void*)&h_MapError);
     log("ddtrace: on (error sites %s)", o_MapError ? "logged" : "NOT logged");

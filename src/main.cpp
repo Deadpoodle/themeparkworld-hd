@@ -217,6 +217,7 @@ void Init() {
     fixes.modeList = IniInt("Compat", "FixModeList", 1) != 0;
     fixes.movies = IniInt("Compat", "FixMovies", 1) != 0;
     fixes.present = IniInt("Compat", "FixPresent", 1) != 0;
+    fixes.signText = IniInt("Compat", "FixSignText", 1) != 0;
     fixes.textures32 = IniInt("Display", "Textures32", 0) != 0;  // off: corrupts every texture (tested)
     fixes.textureMemoryX8 = IniInt("Compat", "TextureMemoryX8", 1) != 0;
     compat::Install(fixes, Log);
