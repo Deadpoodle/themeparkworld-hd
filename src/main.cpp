@@ -25,6 +25,7 @@
 #include "movie.h"
 #include "camera.h"
 #include "lightning.h"
+#include "dgvconf.h"
 #include "version.h"
 #include "watch.h"
 #include "window.h"
@@ -73,6 +74,10 @@ const char kDefaultIni[] =
     "; Frame-rate cap, 0 = none. The camera turns and scrolls a fixed step per frame, so above\r\n"
     "; 60 (the vsync rate the game was made for) it moves too fast\r\n"
     "MaxFPS=60\r\n"
+    "; With dgVoodoo2 (DDraw.dll in the game folder): edge smoothing (off, 2x, 4x, 8x) and\r\n"
+    "; texture filtering (0 = as the game asks, or anisotropic 2..16), written into dgVoodoo.conf\r\n"
+    "Antialiasing=4x\r\n"
+    "Anisotropic=16\r\n"
     "; 1 = show a frame counter in the top-left corner (F2 toggles it while playing)\r\n"
     "ShowFps=0\r\n"
     "; 1 = sharper menu and HUD art: the game's small UI images are enlarged (Lanczos filter, up\r\n"
@@ -248,7 +253,12 @@ void Init() {
     compat::Install(fixes, Log);
     if (IniInt("Audio", "LevelMusicFix", 1)) music::Install(Log);
     display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
-    display::DetectWrapper(g_dir.c_str(), Log);
+    if (display::DetectWrapper(g_dir.c_str(), Log)) {
+        char aa[16];
+        GetPrivateProfileStringA("Display", "Antialiasing", "4x", aa, sizeof aa, IniPath().c_str());
+        dgvconf::Sync(g_dir, dgvconf::AntialiasingValue(aa),
+                      dgvconf::FilteringValue(IniInt("Display", "Anisotropic", 16)), Log);
+    }
 
     char res[64];
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());

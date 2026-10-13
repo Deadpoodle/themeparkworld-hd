@@ -34,6 +34,11 @@ Version = 0x287
 dgVoodooWatermark = false
 ; smooth (bilinear) stretching of the movies and the splash screens
 Bilinear2DOperations = true
+; edge smoothing and texture filtering: Theme Park World HD sets these from
+; its own settings (HD Settings page, or Antialiasing/Anisotropic in
+; ThemeParkWorldHD.ini) each time the game starts
+Antialiasing = 4x
+Filtering = 16
 """
 
 README = """\

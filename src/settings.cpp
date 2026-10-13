@@ -81,6 +81,7 @@ struct Option {
     const char* key;
     const char* def;
     std::vector<Choice> choices;
+    int page = 0;  // 0 the main page, 1 "Compatibility fixes"
 };
 
 const std::vector<Option>& Options() {
@@ -97,6 +98,10 @@ const std::vector<Option>& Options() {
          {{"borderless", L"Borderless"}, {"fullscreen", L"Full screen"}, {"window", L"Window"}}},
         {L"Frame cap", "Display", "MaxFPS", "60",
          {{"60", L"60"}, {"30", L"30"}, {"120", L"120"}, {"144", L"144"}, {"0", L"Off"}}},
+        {L"Anti-aliasing (dgVoodoo2)", "Display", "Antialiasing", "4x",
+         {{"4x", L"4x"}, {"8x", L"8x"}, {"off", L"Off"}, {"2x", L"2x"}}},
+        {L"Texture filtering (dgVoodoo2)", "Display", "Anisotropic", "16",
+         {{"16", L"Anisotropic 16x"}, {"8", L"Anisotropic 8x"}, {"4", L"Anisotropic 4x"}, {"0", L"As the game asks"}}},
         {L"FPS counter (F2)", "Display", "ShowFps", "0", {{"0", L"Off"}, {"1", L"On"}}},
         {L"Sharper UI art", "Display", "SharpUI", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Sharper movies", "Display", "SharpMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
@@ -106,13 +111,13 @@ const std::vector<Option>& Options() {
         {L"Middle-button turn", "Input", "MaxTurnSpeed", "180",
          {{"180", L"180 deg/s max"}, {"90", L"90 deg/s max"}, {"360", L"360 deg/s max"}, {"0", L"Original"}}},
         {L"Alt+F4 quits", "Input", "AltF4", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: park music", "Audio", "LevelMusicFix", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: game clock", "Compat", "FixClock", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: intro movie hang", "Compat", "FixMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: full-screen present", "Compat", "FixPresent", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: sign text", "Compat", "FixSignText", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: texture memory x8", "Compat", "TextureMemoryX8", "1", {{"1", L"On"}, {"0", L"Off"}}},
-        {L"Fix: focus at start-up", "Compat", "FixModeList", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Park music", "Audio", "LevelMusicFix", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Game clock", "Compat", "FixClock", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Intro movie hang", "Compat", "FixMovies", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Full-screen present", "Compat", "FixPresent", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Sign text", "Compat", "FixSignText", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Texture memory x8", "Compat", "TextureMemoryX8", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"Focus at start-up", "Compat", "FixModeList", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
     };
     return o;
 }
@@ -143,8 +148,9 @@ void Cycle(const Option& o) {
 }
 
 // --- The page ------------------------------------------------------------
-constexpr int kIdTitle = 0x4800, kIdFirst = 0x4801, kIdBack = 0x48f0, kIdNote = 0x48f1;
+constexpr int kIdTitle = 0x4800, kIdFirst = 0x4801, kIdBack = 0x48f0, kIdNote = 0x48f1, kIdFixes = 0x48f2;
 void* g_menu;
+int g_page;  // 0 main, 1 compatibility fixes
 
 int __cdecl PageProc(Widget w, int msg, int a, int b);
 
@@ -154,10 +160,12 @@ void Open() {
     MenuInit(g_menu, (void*)&PageProc, kItemProcHover);
     // Font ids are the 13 UI fonts of the active tier: 0 is the Esc menus' large
     // one, 5 the smaller sign font.
-    int y = MenuAdd(g_menu, 40, L"HD Settings", kIdTitle, 0, 0, 0, 0);
+    int y = MenuAdd(g_menu, 40, g_page ? L"Compatibility fixes" : L"HD Settings", kIdTitle, 0, 0, 0, 0);
     y += 30;
     for (size_t i = 0; i < Options().size(); ++i)
-        y = MenuAdd(g_menu, y + 6, RowText(Options()[i]).c_str(), kIdFirst + (int)i, 5, 0, 0, 0);
+        if (Options()[i].page == g_page)
+            y = MenuAdd(g_menu, y + 6, RowText(Options()[i]).c_str(), kIdFirst + (int)i, 5, 0, 0, 0);
+    if (!g_page) y = MenuAdd(g_menu, y + 22, L"Compatibility fixes...", kIdFixes, 5, 0, 0, 0);
     y = MenuAdd(g_menu, y + 40, L"Changes apply the next time the game starts", kIdNote, 5, 0, 0, 0);
     MenuAdd(g_menu, y + 30, L"Back", kIdBack, 0, 0, 0, 0);
     MenuShow(g_menu, 1);
@@ -183,6 +191,13 @@ int __cdecl PageProc(Widget w, int msg, int a, int b) {
             Open();
             return 1;
         }
+        if (a == kIdFixes || (a == kIdBack && g_page)) {  // into the fixes page, or back from it
+            g_page = a == kIdFixes;
+            MenuHide(g_menu);
+            MenuDestroy(g_menu);
+            Open();
+            return 1;
+        }
         if (a == kIdBack) {
             Close();
             return 1;
@@ -190,7 +205,14 @@ int __cdecl PageProc(Widget w, int msg, int a, int b) {
         return 1;  // title, note
     }
     if (msg == 0x1000b && a == VK_ESCAPE) {
-        Close();
+        if (g_page) {
+            g_page = 0;
+            MenuHide(g_menu);
+            MenuDestroy(g_menu);
+            Open();
+        } else {
+            Close();
+        }
         return 1;
     }
     return DefProc(w, msg, a, b);
@@ -214,6 +236,7 @@ int __cdecl SignProc(Widget w, int msg, int a, int b) {
             PlaySfx(0xc1);
             if (!g_menu) {
                 if (Widget ps = *(Widget*)kPlayerSelect) Show(ps, 0);
+                g_page = 0;
                 Open();
             }
             return 1;

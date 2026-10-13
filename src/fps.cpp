@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cmath>
 #include <cstring>
+#include <string>
 
 #include "hook.h"
 #include "lightning.h"
@@ -25,6 +26,7 @@ namespace {
 
 void (*g_log)(const char*, ...);
 volatile bool g_show;
+bool g_logFps;  // [Debug] LogFPS: the counter's value every 5 s
 LONGLONG g_freq, g_since;
 int g_frames;
 char g_text[32] = "-- fps";
@@ -39,6 +41,8 @@ void Draw(void* ctx) {
     ++g_frames;
     if (now.QuadPart - g_since >= g_freq / 2) {
         snprintf(g_text, sizeof g_text, "%.0f fps", g_frames * (double)g_freq / (now.QuadPart - g_since));
+        static int updates;
+        if (g_logFps && ++updates % 10 == 0) g_log("fps: %s (presented frames)", g_text);
         g_since = now.QuadPart;
         g_frames = 0;
     }
@@ -198,6 +202,7 @@ bool Install(bool show, bool detect, const char* dir, void (*log)(const char*, .
     g_log = log;
     g_detect = detect;
     g_dir = dir;
+    g_logFps = GetPrivateProfileIntA("Debug", "LogFPS", 0, (std::string(dir) + "ThemeParkWorldHD.ini").c_str()) != 0;
     if (detect) log("fps: flash detector on (inverted frames are saved as flash<N>.tga)");
     g_show = show;
     LARGE_INTEGER f;
