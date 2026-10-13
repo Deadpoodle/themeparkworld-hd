@@ -49,8 +49,11 @@ void WaitUntil(LONGLONG deadline) {
 }
 
 // Frame statistics for the log: average fps and the slowest frame, per 5 s.
+// "Shown" counts the calls where the game window had the focus: the present
+// function draws nothing otherwise (0x583730), so only those reach the screen.
 LONGLONG g_statStart, g_last, g_worst;
-int g_frames;
+int g_frames, g_shown;
+HWND g_game;
 
 void Stats(LONGLONG now) {
     if (!g_statStart) g_statStart = g_last = now;
@@ -58,11 +61,14 @@ void Stats(LONGLONG now) {
     if (d > g_worst) g_worst = d;
     g_last = now;
     ++g_frames;
+    if (!g_game) g_game = FindWindowA(game::WindowClass, nullptr);
+    if (g_game && GetFocus() == g_game) ++g_shown;
     if (now - g_statStart >= 5 * g_freq) {
-        g_log("framecap: %.1f fps, slowest frame %.1f ms", g_frames * (double)g_freq / (now - g_statStart),
+        double secs = (double)(now - g_statStart) / g_freq;
+        g_log("framecap: %.1f fps (%.1f with focus), slowest frame %.1f ms", g_frames / secs, g_shown / secs,
               g_worst * 1000.0 / g_freq);
         g_statStart = now;
-        g_frames = 0;
+        g_frames = g_shown = 0;
         g_worst = 0;
     }
 }

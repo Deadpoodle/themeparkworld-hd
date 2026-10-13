@@ -174,6 +174,14 @@ void Init() {
 
     g_log = fopen((g_dir + "ThemeParkWorldHD.log").c_str(), "w");
     Log("Theme Park World HD %s", TPWHD_VERSION);
+    // The game finds its data from the working directory (Path_SetBaseDir
+    // 0x5f5690 via _getcwd) and quits silently elsewhere, e.g. from a shortcut
+    // with another "Start in" folder.
+    char cwd[MAX_PATH];
+    if (GetCurrentDirectoryA(MAX_PATH, cwd) && _stricmp((std::string(cwd) + "\\").c_str(), g_dir.c_str()) != 0) {
+        SetCurrentDirectoryA(g_dir.c_str());
+        Log("working directory was %s; set to the game folder", cwd);
+    }
     WriteDefaultIni();
 
     int headlessSetting = IniInt("Debug", "Headless", 0);  // 1 hidden, 2 on screen (asks first)

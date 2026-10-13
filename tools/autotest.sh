@@ -36,7 +36,7 @@ c["Debug"]["Profile"] = os.environ.get("PROFILE", "0")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &
-powershell -NoProfile -File tools/smoke.ps1 -Seconds "$SECS" -Dir "$T" -GameArgs "${ARGS:-}"
+powershell -NoProfile -File tools/smoke.ps1 -Seconds "$SECS" -Dir "$T" -GameArgs "${ARGS:-}" ${ONSCREEN:+-Explorer}
 wait
 cat build/vis.txt
 cat "$T/ThemeParkWorldHD.log"

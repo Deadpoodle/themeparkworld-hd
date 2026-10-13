@@ -222,7 +222,7 @@ void Type(const std::string& text) {
 // Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
 // timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
 // letter or digit, or a virtual-key code (0x..).
-enum class Kind { Key, Shot, Click, Type, AltF4 };
+enum class Kind { Key, Shot, Click, Type, AltF4, Hold };
 struct Step {
     DWORD ms;
     Kind kind;
@@ -235,6 +235,10 @@ int KeyCode(const std::string& k) {
     if (k == "esc") return VK_ESCAPE;
     if (k == "space") return VK_SPACE;
     if (k == "enter") return VK_RETURN;
+    if (k == "left") return VK_LEFT;
+    if (k == "right") return VK_RIGHT;
+    if (k == "up") return VK_UP;
+    if (k == "down") return VK_DOWN;
     if (k.size() >= 2 && k[0] == 'f' && isdigit((unsigned char)k[1])) return VK_F1 + atoi(k.c_str() + 1) - 1;
     if (k.size() == 1 && isalnum((unsigned char)k[0])) return toupper((unsigned char)k[0]);
     if (k.rfind("0x", 0) == 0) return (int)strtoul(k.c_str(), nullptr, 16) & 0xff;
@@ -259,6 +263,15 @@ void ParseScript(const std::string& s) {
         for (char c : what) lower += (char)tolower((unsigned char)c);
         if (lower == "shot") {
             st.kind = Kind::Shot;
+        } else if (lower.rfind("hold ", 0) == 0) {
+            char key[32] = "";
+            int ms = 0;
+            if (sscanf(lower.c_str() + 5, "%31s %d", key, &ms) != 2 || (st.vk = KeyCode(key)) < 0) {
+                g_log("headless: script step \"%s\" not understood", item.c_str());
+                continue;
+            }
+            st.kind = Kind::Hold;
+            st.x = ms;
         } else if (lower == "altf4") {
             st.kind = Kind::AltF4;
         } else if (lower.rfind("click ", 0) == 0 && sscanf(lower.c_str() + 6, "%d %d", &st.x, &st.y) == 2) {
@@ -274,9 +287,29 @@ void ParseScript(const std::string& s) {
     }
 }
 
+// On-screen tests are started from a background process, and Windows won't let
+// such a window take the foreground, so the game never has the focus (and
+// skips presenting). Bring it to the front the way a launcher would.
+void BringToFront() {
+    HWND fg = GetForegroundWindow();
+    DWORD me = GetWindowThreadProcessId(g_hwnd, nullptr), them = fg ? GetWindowThreadProcessId(fg, nullptr) : 0;
+    bool attached = them && them != me && AttachThreadInput(them, me, TRUE);
+    ShowWindow(g_hwnd, SW_SHOW);
+    BringWindowToTop(g_hwnd);
+    SetForegroundWindow(g_hwnd);
+    SetFocus(g_hwnd);
+    if (attached) AttachThreadInput(them, me, FALSE);
+    g_log("headless (on screen): brought to front: %s", GetForegroundWindow() == g_hwnd ? "yes" : "NO");
+}
+
 DWORD WINAPI Worker(LPVOID) {
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);  // this thread only, never the game's
     MuteSession();
+    if (g_visible) {
+        while (!g_hwnd) Sleep(50);
+        Sleep(1500);
+        BringToFront();
+    }
     DWORD start = GetTickCount(), lastShot = start;
     size_t next = 0;
     for (;;) {
@@ -296,6 +329,21 @@ DWORD WINAPI Worker(LPVOID) {
                     g_log("headless: script click %d,%d", s.x, s.y);
                     QueueClick(s.x, s.y);
                     break;
+                case Kind::Hold: {
+                    g_log("headless: script hold %#x for %d ms", s.vk, s.x);
+                    LPARAM scan = (LPARAM)MapVirtualKeyA(s.vk, MAPVK_VK_TO_VSC) << 16;
+                    bool ext = s.vk >= VK_PRIOR && s.vk <= VK_DOWN;
+                    if (ext) scan |= 1 << 24;
+                    g_down[s.vk] = true;
+                    PostMessageA(g_hwnd, WM_KEYDOWN, s.vk, scan | 1);
+                    for (int t = 0; t < s.x; t += 33) {  // auto-repeat, as a held key does
+                        Sleep(33);
+                        PostMessageA(g_hwnd, WM_KEYDOWN, s.vk, scan | 1 | (1u << 30));
+                    }
+                    g_down[s.vk] = false;
+                    PostMessageA(g_hwnd, WM_KEYUP, s.vk, scan | 1 | (1u << 30) | (1u << 31));
+                    break;
+                }
                 case Kind::AltF4:
                     g_log("headless: script Alt+F4");
                     AltF4();
