@@ -60,6 +60,25 @@ HRESULT __stdcall h_CreateDevice(void* d3d, const GUID& g, void* surface, void**
     return hr;
 }
 
+// The engine's DirectX error mapper (0x56a770, cdecl(hr) -> message): log
+// each calling site and error once, so the failing call can be found.
+typedef const char*(__cdecl* MapErrorFn)(HRESULT);
+MapErrorFn o_MapError;
+const char* __cdecl h_MapError(HRESULT hr) {
+    static uintptr_t seen[64][2];
+    static int n;
+    uintptr_t site = (uintptr_t)__builtin_return_address(0);
+    bool known = false;
+    for (int i = 0; i < n; ++i) known |= seen[i][0] == site && seen[i][1] == (uintptr_t)hr;
+    if (!known && n < 64) {
+        seen[n][0] = site;
+        seen[n][1] = (uintptr_t)hr;
+        ++n;
+        g_log("ddtrace: DirectX error %#lx reported at %#x", (unsigned long)hr, (unsigned)(site - 5));
+    }
+    return o_MapError(hr);
+}
+
 typedef HRESULT(WINAPI* DirectDrawCreateFn)(GUID*, void**, void*);
 DirectDrawCreateFn o_DirectDrawCreate;
 
@@ -88,7 +107,9 @@ HRESULT WINAPI h_DirectDrawCreate(GUID* guid, void** dd, void* outer) {
 void Install(void (*log)(const char*, ...)) {
     g_log = log;
     hook::Import(game::IatDirectDrawCreate, &h_DirectDrawCreate, &o_DirectDrawCreate);
-    log("ddtrace: on");
+    o_MapError = (MapErrorFn)hook::Detour(game::MapDxError, game::MapDxErrorBytes, sizeof game::MapDxErrorBytes,
+                                          (void*)&h_MapError);
+    log("ddtrace: on (error sites %s)", o_MapError ? "logged" : "NOT logged");
 }
 
 }  // namespace ddtrace

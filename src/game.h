@@ -76,6 +76,10 @@ constexpr uintptr_t ModeListCoopPush = 0x5fa3ac;
 constexpr uintptr_t MovieFillRetry1 = 0x51b207;
 constexpr uintptr_t MovieFillRetry2 = 0x51b240;
 
+// DirectX error -> message (cdecl, hr); first 9 bytes: mov eax,[esp+4]; cmp eax,0x80004005
+constexpr uintptr_t MapDxError = 0x56a770;
+constexpr uint8_t MapDxErrorBytes[] = {0x8b, 0x44, 0x24, 0x04, 0x3d, 0x05, 0x40, 0x00, 0x80};
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

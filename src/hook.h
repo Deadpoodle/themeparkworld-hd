@@ -49,4 +49,25 @@ inline bool Redirect(uintptr_t site, uint8_t opcode, uintptr_t expect, const voi
     return Patch(site, want, now, 5);
 }
 
+// Detour a function whose first n bytes (n >= 5) are whole instructions with
+// no relative addressing, given as `expect`: they are copied to a trampoline
+// followed by a jmp back, and replaced by a jmp to `fn`. Returns the
+// trampoline (call it to run the original), or nullptr.
+inline void* Detour(uintptr_t addr, const uint8_t* expect, size_t n, const void* fn) {
+    if (n < 5 || !Matches(addr, expect, n)) return nullptr;
+    uint8_t* tramp = (uint8_t*)VirtualAlloc(nullptr, n + 5, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    if (!tramp) return nullptr;
+    memcpy(tramp, expect, n);
+    tramp[n] = 0xe9;
+    int32_t back = (int32_t)((addr + n) - ((uintptr_t)tramp + n + 5));
+    memcpy(tramp + n + 1, &back, 4);
+    uint8_t jmp[16];
+    memset(jmp, 0x90, sizeof jmp);
+    jmp[0] = 0xe9;
+    int32_t to = (int32_t)((uintptr_t)fn - (addr + 5));
+    memcpy(jmp + 1, &to, 4);
+    if (!Patch(addr, expect, jmp, n)) return nullptr;
+    return tramp;
+}
+
 }  // namespace hook
