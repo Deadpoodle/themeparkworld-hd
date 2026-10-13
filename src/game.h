@@ -69,6 +69,13 @@ constexpr uintptr_t ResolutionSetting = 0x7858ec;  // Resolution.sam RESOLUTION 
 constexpr uintptr_t CallSoftCopyClear32 = 0x573dbd;
 constexpr uintptr_t SoftCopyClear32 = 0x678c20;
 
+// Mode list (0x5fa2f0, from the cursor set-up 0x489cb1 -> 0x5fa1e0):
+// `push 0x55` = SetCooperativeLevel(EXCLUSIVE|FULLSCREEN|...) on _BullfrogLibScreen.
+constexpr uintptr_t ModeListCoopPush = 0x5fa3ac;
+// Movie player (0x51b010): `jne` back to retry a failed colour-fill Blt, forever.
+constexpr uintptr_t MovieFillRetry1 = 0x51b207;
+constexpr uintptr_t MovieFillRetry2 = 0x51b240;
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730

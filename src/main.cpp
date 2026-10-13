@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "compat.h"
 #include "ddtrace.h"
 #include "display.h"
 #include "framecap.h"
@@ -201,6 +202,7 @@ void Init() {
     char res[64];
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
     display::Size size;
+    compat::Install(Log);
     display::InstallSoftwareClearFix(Log);
     display::DetectWrapper(g_dir.c_str(), Log);  // a bug fix in every mode: never wanted
     if (display::Parse(res, &size)) display::Install(size, Log);
