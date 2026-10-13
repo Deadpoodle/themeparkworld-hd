@@ -201,7 +201,8 @@ void Init() {
     char res[64];
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
     display::Size size;
-    display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
+    display::InstallSoftwareClearFix(Log);
+    display::DetectWrapper(g_dir.c_str(), Log);  // a bug fix in every mode: never wanted
     if (display::Parse(res, &size)) display::Install(size, Log);
     else Log("display: Resolution=%s not understood; original kept", res);
 

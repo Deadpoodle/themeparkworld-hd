@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 
 #include "game.h"
 #include "hook.h"
@@ -48,7 +49,41 @@ void __cdecl h_SoftCopyClear32(DWORD a0, DWORD a1, DWORD a2, DWORD a3, DWORD a4,
     reinterpret_cast<SoftCopyClear32Fn>(game::SoftCopyClear32)(a0, a1, a2, a3, a4, a5, a6, a7, a8, colour, colour);
 }
 
+bool g_wrapper;  // dgVoodoo2's DDraw.dll is in the game folder
+
 }  // namespace
+
+// dgVoodoo2 (DirectX 1-7 to Direct3D 11) lifts the 2048-wide limit of the
+// game's own Direct3D. It is recognised by its version information.
+bool DetectWrapper(const char* gameDir, void (*log)(const char*, ...)) {
+    char path[MAX_PATH];
+    snprintf(path, sizeof path, "%sDDraw.dll", gameDir);
+    DWORD handle, size = GetFileVersionInfoSizeA(path, &handle);
+    if (!size) return false;
+    char* buf = new char[size];
+    struct Lang {
+        WORD lang, codepage;
+    }* langs = nullptr;
+    UINT len = 0;
+    if (GetFileVersionInfoA(path, 0, size, buf) &&
+        VerQueryValueA(buf, "\\VarFileInfo\\Translation", (void**)&langs, &len))
+        for (UINT i = 0; i < len / sizeof(Lang) && !g_wrapper; ++i)
+            for (const char* field : {"ProductName", "FileDescription"}) {
+                char key[96];
+                char* value = nullptr;
+                UINT n = 0;
+                snprintf(key, sizeof key, "\\StringFileInfo\\%04x%04x\\%s", langs[i].lang, langs[i].codepage, field);
+                if (VerQueryValueA(buf, key, (void**)&value, &n) && value && strstr(value, "dgVoodoo")) g_wrapper = true;
+            }
+    VS_FIXEDFILEINFO* fi = nullptr;
+    if (g_wrapper && VerQueryValueA(buf, "\\", (void**)&fi, &len) && fi)
+        log("display: dgVoodoo2 found (DDraw.dll %u.%u.%u): Direct3D at any size", HIWORD(fi->dwFileVersionMS),
+            LOWORD(fi->dwFileVersionMS), HIWORD(fi->dwFileVersionLS));
+    else if (!g_wrapper)
+        log("display: DDraw.dll in the game folder is not dgVoodoo2");
+    delete[] buf;
+    return g_wrapper;
+}
 
 bool InstallSoftwareClearFix(void (*log)(const char*, ...)) {
     bool ok = hook::Redirect(game::CallSoftCopyClear32, 0xe8, game::SoftCopyClear32, (void*)&h_SoftCopyClear32);
@@ -66,7 +101,7 @@ bool Parse(const char* text, Size* out) {
         dm.dmSize = sizeof dm;
         if (!EnumDisplaySettingsA(nullptr, ENUM_CURRENT_SETTINGS, &dm)) return false;  // real pixels, not DPI-scaled
         *out = {(int)dm.dmPelsWidth, (int)dm.dmPelsHeight};
-        if (out->w <= kMaxD3DWidth) return true;
+        if (out->w <= kMaxD3DWidth || g_wrapper) return true;  // dgVoodoo2 has no such limit
         // The game's Direct3D (DX6 HAL) can't make a device on a render target
         // wider than 2048 (CreateDevice fails, 0x88760082) and falls back to the
         // software renderer. Take the largest display mode within that, in the
@@ -122,7 +157,7 @@ bool Install(Size size, void (*log)(const char*, ...)) {
               hook::Redirect(game::CallVideoInitResolution, 0xe8, game::VideoInitResolution,
                              (void*)&h_VideoInitResolution);
     log("display: %dx%d requested%s", size.w, size.h, ok ? "" : " - CALL PATCH FAILED");
-    if (size.w > kMaxD3DWidth)
+    if (size.w > kMaxD3DWidth && !g_wrapper)
         log("display: wider than %d: Direct3D can't start there, so the game uses its software renderer", kMaxD3DWidth);
     return ok;
 }

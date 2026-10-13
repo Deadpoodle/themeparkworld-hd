@@ -36,3 +36,6 @@ build/
 
 # Local clone of the newgame-plus skill (separate repo)
 newgame-plus/
+
+# Third-party downloads (licence decides what is committed)
+third_party/dgVoodoo2/
