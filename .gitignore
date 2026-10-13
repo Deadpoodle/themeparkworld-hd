@@ -33,3 +33,6 @@ build/
 # IDE
 .vs/
 *.vcxproj.user
+
+# Local clone of the newgame-plus skill (separate repo)
+newgame-plus/

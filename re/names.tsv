@@ -1,0 +1,14 @@
+# Theme Park World HD — re/names.tsv
+# address	name	note	type
+# Confirmed names go here; re-run ApplyNames.java + ExportCaches.java after adding entries.
+0045a960	App_WinMain	WinMain; message pump + per-frame step	function
+00449ec0	Video_InitResolution	RESOLUTION setting / dev flags -> width 0x7a1968, height 0x7a1930	function
+00419710	Language_LoadResourcesAndFonts	string tables + one F4FB font tier chosen from RESOLUTION	function
+0041a5a0	Font_SelectResolutionTier	thiscall(width), ret 4; tier from real width	function
+00485a70	Font_GetFromActiveTier	font id 0..12 -> 0x78b54c + 24*(id+13*tier)	function
+00563460	DirectDraw_InitDisplay	fullscreen/windowed setup	function
+007a1968	g_ScreenWidth		global
+007a1930	g_ScreenHeight		global
+007858ec	g_ResolutionSetting	Resolution.sam RESOLUTION	global
+0078b534	g_FontTier	active font tier 0..3	global
+007a1a8c	g_DisplayFlags	bit0 fullscreen; default 0xc0e15 at 0x449e1c	global
