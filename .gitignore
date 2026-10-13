@@ -39,3 +39,6 @@ newgame-plus/
 
 # Third-party downloads (licence decides what is committed)
 third_party/dgVoodoo2/
+
+# Texture dumps (game-derived art, never committed)
+dump/

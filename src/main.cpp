@@ -21,6 +21,7 @@
 #include "prof.h"
 #include "registry.h"
 #include "settings.h"
+#include "texhd.h"
 #include "version.h"
 #include "watch.h"
 #include "window.h"
@@ -253,6 +254,7 @@ void Init() {
     ApplyDebugPatches();
     if (IniInt("Display", "SettingsPage", 1)) settings::Install(IniPath(), Log);
     fps::Install(IniInt("Display", "ShowFps", 0) != 0, Log);
+    texhd::Install(g_dir, IniInt("Debug", "DumpTextures", 0) != 0, Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
     if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
     char watchAddr[32];
