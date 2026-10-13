@@ -19,6 +19,7 @@
 #include "prof.h"
 #include "registry.h"
 #include "version.h"
+#include "window.h"
 
 namespace {
 
@@ -57,8 +58,10 @@ const char kDefaultIni[] =
     "; wide, because the game's Direct3D stops there), WxH (e.g. 1920x1080; wider than 2048 uses\r\n"
     "; the slower software renderer), or original (640x480, or what data\\Resolution.sam says)\r\n"
     "Resolution=auto\r\n"
-    "; 1 = run in a window instead of full screen (the game's own window, not yet scaled)\r\n"
-    "Windowed=0\r\n"
+    "; borderless (a window covering the screen, no display mode change; needs Resolution at the\r\n"
+    "; desktop's size, otherwise full screen is used), fullscreen (the original exclusive mode), or\r\n"
+    "; window (the game's own window, not yet scalable)\r\n"
+    "Mode=borderless\r\n"
     "; Frame-rate cap. Above about 60 the camera and animations run too fast. 0 = no cap\r\n"
     "MaxFPS=60\r\n"
     "\r\n"
@@ -99,11 +102,6 @@ DWORD WINAPI ShowError(LPVOID text) {
 bool Recognised() {
     return hook::Matches(game::DisplayFlagsInit, game::DisplayFlagsInitBytes, sizeof game::DisplayFlagsInitBytes) &&
            hook::Matches(game::FontSelectTier, game::FontSelectTierBytes, sizeof game::FontSelectTierBytes);
-}
-
-bool PatchWindowed() {
-    const uint8_t from = 0x15, to = 0x14;  // display flags bit 0 = fullscreen
-    return hook::Patch(game::DisplayFlagsInitLowByte, &from, &to, 1);
 }
 
 bool DirExists(const std::string& p) {
@@ -195,21 +193,22 @@ void Init() {
     if (IniInt("Compat", "Registry", 1)) registry::Install(GameLanguage(), Log);
     if (IniInt("Compat", "SingleCPU", 1)) PinToOneCpu();
 
-    if (headlessMode || IniInt("Display", "Windowed", 0)) {
-        bool ok = PatchWindowed();
-        Log("display: windowed %s", ok ? "on" : "patch FAILED");
-        if (!ok && headlessMode) ExitProcess(2);
-    }
+    compat::Install(Log);
+    display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
+    display::DetectWrapper(g_dir.c_str(), Log);
 
     char res[64];
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
-    display::Size size;
-    compat::Install(Log);
-    input::Install(IniInt("Input", "AltF4", 1) != 0, Log);
-    display::InstallSoftwareClearFix(Log);
-    display::DetectWrapper(g_dir.c_str(), Log);  // a bug fix in every mode: never wanted
+    display::Size size{0, 0};
     if (display::Parse(res, &size)) display::Install(size, Log);
     else Log("display: Resolution=%s not understood; original kept", res);
+
+    // Window mode next: its CreateWindowExA hook must be the innermost.
+    char mode[32];
+    GetPrivateProfileStringA("Display", "Mode", IniInt("Display", "Windowed", 0) ? "window" : "borderless", mode,
+                             sizeof mode, IniPath().c_str());
+    if (!window::Install(window::ParseMode(mode), size.w, size.h, headlessMode, Log) && headlessMode) ExitProcess(2);
+    input::Install(IniInt("Input", "AltF4", 1) != 0, Log);
 
     framecap::Install(IniInt("Display", "MaxFPS", 60),
                       testMode || IniInt("Debug", "LogFPS", 0) || IniInt("Debug", "Profile", 0), Log);
