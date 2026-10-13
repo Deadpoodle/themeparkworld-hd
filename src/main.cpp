@@ -72,6 +72,10 @@ const char kDefaultIni[] =
     "MaxFPS=60\r\n"
     "; 1 = show a frame counter in the top-left corner (F2 toggles it while playing)\r\n"
     "ShowFps=0\r\n"
+    "; 1 = sharper menu and HUD art: the game's small UI images are enlarged (Lanczos filter, up\r\n"
+    "; to 256 px) before the graphics card stretches them. Replacement art in data\\hd\\textures\\\r\n"
+    "; <name>.png (up to 256 px a side) is used instead where present. 0 = the original images\r\n"
+    "SharpUI=1\r\n"
     "\r\n"
     "[Input]\r\n"
     "; 1 = Alt+F4 quits the game (the original ignored it)\r\n"
@@ -254,7 +258,7 @@ void Init() {
     ApplyDebugPatches();
     if (IniInt("Display", "SettingsPage", 1)) settings::Install(IniPath(), Log);
     fps::Install(IniInt("Display", "ShowFps", 0) != 0, Log);
-    texhd::Install(g_dir, IniInt("Debug", "DumpTextures", 0) != 0, Log);
+    texhd::Install(g_dir, IniInt("Display", "SharpUI", 1) != 0, IniInt("Debug", "DumpTextures", 0) != 0, Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
     if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
     char watchAddr[32];

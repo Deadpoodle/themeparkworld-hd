@@ -31,13 +31,19 @@ New Game+ was distilled from [WarBreeds HD](https://github.com/Deadpoodle/warbre
 | **Resume after Alt+Tab** | `[Input] ResumeOnFocus=1` | A park paused by switching away carries on when you come back (the original waited for P). |
 | **Alt+F4** | `[Input] AltF4=1` | Quits the game, which the original ignored. |
 | **Fixes for modern Windows** | always | The intro movie no longer hangs when the game loses focus, and a full-screen present flag that dgVoodoo2 rejected is corrected. The working directory is set to the game folder, so shortcuts work. |
+| **Park music** | `[Audio] LevelMusicFix=1` | The music plays in the parks again (after TPW Patcher by TheAussie; skipped if TPW Patcher is already applied). |
+| **Sharper UI art** | `[Display] SharpUI=1` | The menu and HUD art is 16-128 px images that the graphics card stretches to the full screen. They are now enlarged up to 256 px first with a Lanczos filter (no AI), and stored with an ordered dither instead of truncated to the game's 4-bit colour, which removes the blotchy banding on the menu signs. Your own art can replace any of them (below). |
+| **1024 splash art** | (above 1024 wide) | The splash, legal and loading screens use the game's 1024x768 pictures instead of the 640x480 ones. |
+| **FPS counter** | `[Display] ShowFps=0`, F2 | A frame counter in the top-left corner. |
+| **Sign text** | `[Compat] FixSignText=1` | Ride and park signs were blank: the game asks Uniscribe for clipping without a clip rectangle, which current Windows refuses. |
+| **Texture memory** | `[Compat] TextureMemoryX8=1` | The texture cache's budget was 32 MB whatever the card has, which shows as white textures in big parks (the community fix: 256 MB). |
 | **Single core (option, off)** | `[Compat] SingleCPU=0` | Pins the game to one CPU core. Not needed, and with a frame cap it starved the animation. |
 | **Windowed** | `[Display] Windowed=1` | The engine's own windowed mode, which the game never exposed (not yet scaled or borderless). |
 
 ### Known limits
 
 - **Wider than 2048 pixels needs dgVoodoo2.** Without a wrapper, the game's own Direct3D (the DirectX 6 HAL device) won't start on a render target wider than 2048, and the game falls back to its slower software renderer. So without dgVoodoo2, `auto` picks the largest display mode up to 2048 wide in your screen's shape (1920x1080 on a 2560x1440 screen), and the screen scales it up. With dgVoodoo2 installed (below), `auto` uses your full desktop resolution.
-- **The interface isn't scaled yet.** The 2D menu art stretches to the screen width, and the text stays at its 1024x768 size.
+- **The interface isn't laid out for wide screens yet.** The 2D menu art stretches to the screen width, and the text stays at its 1024x768 size.
 - **Tested on one PC** (AMD RX 9070 XT, Windows 10). Without dgVoodoo2: full screen at 1920x1080, and windowed from 1280x720 to 2560x1440. With dgVoodoo2: windowed at 2560x1440. Full screen with dgVoodoo2 is not tested yet.
 
 ## What you need
@@ -49,6 +55,14 @@ New Game+ was distilled from [WarBreeds HD](https://github.com/Deadpoodle/warbre
   2. Set `dgVoodooWatermark = false` in `dgVoodoo.conf`.
 
   The patch recognises dgVoodoo2 by its version information and logs it. Its readme allows a game mod to ship unmodified dgVoodoo files, so future release packages may include it.
+
+## Replacement art
+
+The game's UI images can be swapped for your own without touching its files:
+
+1. Set `[Debug] DumpTextures=1` in `ThemeParkWorldHD.ini`, start the game and visit the screens you care about. Each texture is written to `dump\textures\` in the game folder, decoded by the game's own decoder. The button plates carry no text (labels are drawn at run time).
+2. `python tools/dump2png.py <game folder> <output folder>` converts them to PNG with a `manifest.tsv` (size, alpha).
+3. Put a replacement at `data\hd\textures\<name>.png` in the game folder (up to 256x256, any shape; the alpha channel is used). It is loaded instead of the original whenever `SharpUI=1`.
 
 ## Building
 
@@ -62,14 +76,14 @@ This writes `build/wsock32.dll`. Copy it into the game folder next to `TP.exe`. 
 
 ## Testing
 
-`tools/autotest.sh [seconds] [screenshot-every] [script]` builds the DLL, installs it into a hidden test copy of the game (`testrun/`, never the copy you play), and runs it headless. It reports whether any game window was ever visible or in the foreground, and prints the log. Scripts are timed steps such as `6:esc,12:esc,21:shot` (keys, `click X Y`, `type TEXT`, and screenshots made with the game's own screenshot code). Environment variables select `RES=`, `MAXFPS=`, `ARGS=`, `PATCH=` (verified byte patches for experiments) and `DDTRACE=1` (a DirectDraw/Direct3D call trace).
+`tools/autotest.sh [seconds] [screenshot-every] [script]` builds the DLL, installs it into a hidden test copy of the game (`testrun/`, never the copy you play), and runs it headless. It reports whether any game window was ever visible or in the foreground, and prints the log. Scripts are timed steps such as `6:esc,12:esc,21:shot` (keys, `click X Y`, `type TEXT`, and screenshots made with the game's own screenshot code). Environment variables select `RES=`, `MAXFPS=`, `INI=` (any ini values, `Section.Key=value;...`), `ARGS=`, `PATCH=` (verified byte patches for experiments) and `DDTRACE=1` (a DirectDraw/Direct3D call trace).
 
 ## Planned
 
 1. **Core:** done apart from big-park textures (a known community fix).
 2. **Interface and rendering:** an interface that scales and stays readable at 1440p and above; Direct3D beyond 2048 wide; borderless full screen.
-3. **Extras:** the in-park music fix (re-implementing the community TPW Patcher's fix, with credit), mouse-wheel zoom, an FPS counter.
-4. **Comfort:** camera speed tied to time rather than frames, an in-game settings page, saves.
+3. **Extras:** done: the in-park music fix, an FPS counter, sharper UI art. Mouse-wheel zoom already works in the game.
+4. **Comfort:** camera speed tied to time rather than frames (the in-game settings page is done).
 
 ## Credits and prior art
 

@@ -6,6 +6,7 @@
 #        ARGS=/bwcursor autotest.sh    game command line
 #        ONSCREEN=1 autotest.sh          on-screen test (full screen; only with the player's OK)
 #        TESTDIR=testrun-x autotest.sh   another hidden test copy, so runs can go side by side
+#        INI="Display.SharpUI=0" autotest.sh   any other ini values (Section.Key=value;...)
 set -e
 cd "$(dirname "$0")/.."
 SECS=${1:-30}
@@ -37,6 +38,11 @@ c["Debug"]["Profile"] = os.environ.get("PROFILE", "0")
 c["Debug"]["Watch"] = os.environ.get("WATCH", "")
 c["Debug"]["BlockActivateApp"] = os.environ.get("BLOCKACT", "0")
 c["Debug"]["NoPresent"] = os.environ.get("NOPRESENT", "0")
+for kv in filter(None, os.environ.get("INI", "").split(";")):  # INI="Display.SharpUI=0;Debug.DumpTextures=1"
+    key, value = kv.split("=", 1)
+    sec, name = key.split(".", 1)
+    if sec not in c: c[sec] = {}
+    c[sec][name] = value
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &
