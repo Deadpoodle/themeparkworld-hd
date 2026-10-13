@@ -55,7 +55,7 @@ New Game+ was distilled from [WarBreeds HD](https://github.com/Deadpoodle/warbre
   1. Copy `MS\x86\DDraw.dll`, `MS\x86\D3DImm.dll` and `dgVoodoo.conf` from its zip into the game folder.
   2. Set `dgVoodooWatermark = false` in `dgVoodoo.conf`.
 
-  The patch recognises dgVoodoo2 by its version information and logs it. Its readme allows a game mod to ship unmodified dgVoodoo files, so future release packages may include it.
+  The patch recognises dgVoodoo2 by its version information and logs it. Its readme allows a game mod to ship unmodified dgVoodoo files, so the release zip includes `DDraw.dll` and `D3DImm.dll` unmodified, with a short `dgVoodoo.conf` of our own (watermark off, `Bilinear2DOperations = true`; dgVoodoo2 keeps its defaults for everything else).
 
 ## Replacement art
 
@@ -74,6 +74,15 @@ Needs a 32-bit MinGW-w64 toolchain (MSYS2 `mingw32`, or `i686-w64-mingw32-g++` o
 ```
 
 This writes `build/wsock32.dll`. Copy it into the game folder next to `TP.exe`. The first run writes a commented `ThemeParkWorldHD.ini` and a `ThemeParkWorldHD.log` there. Remove the DLL to get the stock game back.
+
+## Release package
+
+```sh
+./build.sh
+python -I tools/package.py
+```
+
+This writes `release/ThemeParkWorldHD-<version>.zip`: the DLL, dgVoodoo2's `DDraw.dll` and `D3DImm.dll` copied byte for byte from its official zip (`third_party/dgVoodoo2/<version>/`, not in the repo), our `dgVoodoo.conf`, install notes, the licence and the third-party notices (dgVoodoo2's terms, TPW Patcher's MIT licence). Players extract it into the game folder. No game files go in. The build is reproducible (no PE timestamp), so the zip's DLL is byte for byte the one that was tested.
 
 ## Testing
 

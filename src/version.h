@@ -1,2 +1,2 @@
 #pragma once
-#define TPWHD_VERSION "0.0.1-dev"
+#define TPWHD_VERSION "0.1.0"
