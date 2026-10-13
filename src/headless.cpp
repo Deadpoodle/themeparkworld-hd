@@ -81,7 +81,10 @@ int g_shotsTaken;
 // The game presents only while its window has the focus (BDEngine_Present
 // 0x583730 asks every frame), so this is also a per-frame point on the game
 // thread: requested screenshots are taken here, by the game's own F8 code.
+void RunUiStep();
+
 HWND WINAPI h_GetFocus() {
+    RunUiStep();
     if (g_shotsPending > 0 && InterlockedDecrement(&g_shotsPending) >= 0) {
         reinterpret_cast<void (*)()>(game::SaveScreenshotTGA)();
         g_log("headless: screenshot Scr%05d.tga", ++g_shotsTaken);
@@ -157,20 +160,46 @@ void TapKey(UINT vk) {
     PostMessageA(g_hwnd, WM_KEYUP, vk, scan | 1 | (1u << 30) | (1u << 31));
 }
 
-// Mouse clicks as the game sees them: move first, press a few frames later
-// (games compare the press with the previous frame's position), with the
-// button held in the virtual key state too. x, y are client pixels.
-void Click(int x, int y) {
-    LPARAM pos = MAKELPARAM(x, y);
-    PostMessageA(g_hwnd, WM_MOUSEMOVE, 0, pos);
-    Sleep(150);
-    PostMessageA(g_hwnd, WM_MOUSEMOVE, 0, pos);
-    Sleep(100);
-    g_down[VK_LBUTTON] = true;
-    PostMessageA(g_hwnd, WM_LBUTTONDOWN, MK_LBUTTON, pos);
-    Sleep(150);
-    g_down[VK_LBUTTON] = false;
-    PostMessageA(g_hwnd, WM_LBUTTONUP, 0, pos);
+// Mouse clicks go to the game's UI functions on the game thread (the colour
+// cursor reads only DirectInput, which never acquires in a hidden window). The
+// worker queues steps; the per-frame hook below runs one step per frame.
+// Move first and press a few frames later: the menus pick the hovered item per
+// frame and record the cursor from the second move.
+struct UiStep {
+    int op;  // 0 move, 1 down, 2 up, 3 wait
+    short x, y;
+};
+CRITICAL_SECTION g_uiLock;
+std::vector<UiStep> g_ui;
+size_t g_uiNext;
+
+void QueueClick(int cx, int cy) {
+    EnterCriticalSection(&g_uiLock);
+    g_ui.push_back({0, (short)cx, (short)cy});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
+    g_ui.push_back({0, (short)cx, (short)cy});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
+    g_ui.push_back({1, (short)cx, (short)cy});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
+    g_ui.push_back({2, (short)cx, (short)cy});
+    LeaveCriticalSection(&g_uiLock);
+}
+
+void RunUiStep() {
+    UiStep st;
+    EnterCriticalSection(&g_uiLock);
+    bool any = g_uiNext < g_ui.size();
+    if (any) st = g_ui[g_uiNext++];
+    LeaveCriticalSection(&g_uiLock);
+    if (!any || st.op == 3) return;
+    int w = *(short*)game::UIScreenW, h = *(short*)game::UIScreenH;
+    if (w <= 0 || h <= 0) return;
+    int vx = st.x * 2048 / w, vy = st.y * 1536 / h;  // client pixels -> UI space
+    typedef short(__cdecl * MoveFn)(int, int);
+    typedef short(__cdecl * ButtonFn)(int, int, int);
+    if (st.op == 0) reinterpret_cast<MoveFn>(game::UIMouseMove)(vx, vy);
+    else if (st.op == 1) reinterpret_cast<ButtonFn>(game::UIMouseButtonDown)(0, vx, vy);
+    else reinterpret_cast<ButtonFn>(game::UIMouseButtonUp)(0, vx, vy);
 }
 
 // Alt+F4 as Windows delivers it: WM_SYSKEYDOWN with the context bit (Alt held).
@@ -265,7 +294,7 @@ DWORD WINAPI Worker(LPVOID) {
                     break;
                 case Kind::Click:
                     g_log("headless: script click %d,%d", s.x, s.y);
-                    Click(s.x, s.y);
+                    QueueClick(s.x, s.y);
                     break;
                 case Kind::AltF4:
                     g_log("headless: script Alt+F4");
@@ -298,6 +327,7 @@ bool Install(const Options& opt, void (*log)(const char*, ...)) {
     g_shotEvery = opt.screenshotEvery;
     g_quitAfter = opt.quitAfter;
     g_visible = opt.visible;
+    InitializeCriticalSection(&g_uiLock);
     ParseScript(opt.script);
     bool ok = hook::Import(game::IatCreateWindowExA, &h_CreateWindowExA, &o_CreateWindowExA);
     decltype(&GetAsyncKeyState) unusedA;

@@ -94,6 +94,15 @@ constexpr uint8_t PresentBltWaitBytes[] = {0xba, 0x00, 0x00, 0x00, 0x01, 0x8b, 0
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730
 constexpr uintptr_t Present = 0x583730;
 
+// UI input (re/mouse-input.md), cdecl, game thread only, coordinates in the
+// 2048x1536 UI space. The colour cursor ignores window mouse messages
+// (0x7b4b88) and reads DirectInput, so the test harness calls these directly.
+constexpr uintptr_t UIMouseMove = 0x6588ef;        // (short x, short y)
+constexpr uintptr_t UIMouseButtonDown = 0x658af1;  // (int button, short x, short y)
+constexpr uintptr_t UIMouseButtonUp = 0x658b5b;
+constexpr uintptr_t UIScreenW = 0xfaa5c4;  // int16, client size the UI maps from
+constexpr uintptr_t UIScreenH = 0xfaa5c0;
+
 // --- Globals -------------------------------------------------------------
 constexpr uintptr_t ScreenWidth = 0x7a1968;
 constexpr uintptr_t ScreenHeight = 0x7a1930;
