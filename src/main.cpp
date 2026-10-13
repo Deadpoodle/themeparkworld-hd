@@ -18,6 +18,7 @@
 #include "input.h"
 #include "prof.h"
 #include "registry.h"
+#include "settings.h"
 #include "version.h"
 #include "watch.h"
 #include "window.h"
@@ -211,7 +212,12 @@ void Init() {
     if (IniInt("Compat", "Registry", 1)) registry::Install(GameLanguage(), Log);
     if (IniInt("Compat", "SingleCPU", 0)) PinToOneCpu();
 
-    compat::Install(Log);
+    compat::Options fixes;
+    fixes.clock = IniInt("Compat", "FixClock", 1) != 0;
+    fixes.modeList = IniInt("Compat", "FixModeList", 1) != 0;
+    fixes.movies = IniInt("Compat", "FixMovies", 1) != 0;
+    fixes.present = IniInt("Compat", "FixPresent", 1) != 0;
+    compat::Install(fixes, Log);
     display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
     display::DetectWrapper(g_dir.c_str(), Log);
 
@@ -233,6 +239,7 @@ void Init() {
                       testMode || IniInt("Debug", "LogFPS", 0) || IniInt("Debug", "Profile", 0), Log);
 
     ApplyDebugPatches();
+    if (IniInt("Display", "SettingsPage", 1)) settings::Install(IniPath(), Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
     if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
     char watchAddr[32];
