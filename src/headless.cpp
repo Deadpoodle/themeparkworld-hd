@@ -234,7 +234,7 @@ void Type(const std::string& text) {
 // Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
 // timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
 // letter or digit, or a virtual-key code (0x..).
-enum class Kind { Key, Shot, Click, Type, AltF4, Hold, Wiggle };
+enum class Kind { Key, Shot, Click, Type, AltF4, Hold, Wiggle, Wheel };
 struct Step {
     DWORD ms;
     Kind kind;
@@ -275,6 +275,9 @@ void ParseScript(const std::string& s) {
         for (char c : what) lower += (char)tolower((unsigned char)c);
         if (lower == "shot") {
             st.kind = Kind::Shot;
+        } else if (lower.rfind("wheel ", 0) == 0) {
+            st.kind = Kind::Wheel;
+            st.x = atoi(lower.c_str() + 6);  // delta
         } else if (lower.rfind("wiggle ", 0) == 0) {
             st.kind = Kind::Wiggle;
             st.x = atoi(lower.c_str() + 7) * 1000;  // ms
@@ -357,6 +360,15 @@ DWORD WINAPI Worker(LPVOID) {
                     }
                     g_down[s.vk] = false;
                     PostMessageA(g_hwnd, WM_KEYUP, s.vk, scan | 1 | (1u << 30) | (1u << 31));
+                    break;
+                }
+                case Kind::Wheel: {
+                    RECT r;
+                    GetClientRect(g_hwnd, &r);
+                    POINT pt = {(r.right - r.left) / 2, (r.bottom - r.top) / 2};
+                    ClientToScreen(g_hwnd, &pt);
+                    g_log("headless: script wheel %d", s.x);
+                    PostMessageA(g_hwnd, WM_MOUSEWHEEL, MAKEWPARAM(0, (WORD)(short)s.x), MAKELPARAM(pt.x, pt.y));
                     break;
                 }
                 case Kind::Wiggle:
