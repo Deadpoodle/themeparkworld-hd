@@ -579,3 +579,6 @@
 0x00faa610	g_SpriteBankList	M: registered UI sprite banks [frontend-menus]
 0x00faa620	g_LayoutIndex	H: Layout_Exec position (not re-entrant) [frontend-menus]
 0x00fb3520	g_CheatState	H: this of Cheat_IsEnabled; cheat flag byte at +0xa (0x00fb352a) [startup-and-switches]
+0x0057ed50	Engine_DrawLightningFlash	H: one-frame full-screen white quad, state 0x9a1 (blend 0xa1 = INVDESTCOLOR,ZERO: a negative), when engine+4 is set	function
+0x0057dc70	Engine_RequestLightningFlash	H: sets engine+4 = 1; called per strike by the storm front-end scene (0x5e1100 area)	function
+0x0042a7ff	Camera_MiddleTurnStep	H: (cursor x - 1024) * 2^-11 rad added to yaw 0x790a38 per msg 0x1e (twice a frame); patched by camera.cpp	code

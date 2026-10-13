@@ -23,6 +23,7 @@
 #include "settings.h"
 #include "texhd.h"
 #include "movie.h"
+#include "camera.h"
 #include "version.h"
 #include "watch.h"
 #include "window.h"
@@ -87,6 +88,9 @@ const char kDefaultIni[] =
     "; 1 = a park paused by switching away (Alt+Tab) carries on when you come back; 0 = it stays\r\n"
     "; paused until you press P, as in the original\r\n"
     "ResumeOnFocus=1\r\n"
+    "; Fastest camera turn with the middle button, in degrees per second (0 = the original, which\r\n"
+    "; turns faster the further the cursor is from the centre, up to about 1700 at the edge)\r\n"
+    "MaxTurnSpeed=180\r\n"
     "\r\n"
     "[Audio]\r\n"
     "; 1 = the park music plays (a fix after TPW Patcher by TheAussie; skipped if TPW Patcher is applied)\r\n"
@@ -261,8 +265,9 @@ void Init() {
 
     ApplyDebugPatches();
     if (IniInt("Display", "SettingsPage", 1)) settings::Install(IniPath(), Log);
-    fps::Install(IniInt("Display", "ShowFps", 0) != 0, Log);
+    fps::Install(IniInt("Display", "ShowFps", 0) != 0, IniInt("Debug", "FlashDetect", 0) != 0, g_dir.c_str(), Log);
     texhd::Install(g_dir, IniInt("Display", "SharpUI", 1) != 0, IniInt("Debug", "DumpTextures", 0) != 0, Log);
+    camera::Install(IniInt("Input", "MaxTurnSpeed", 180), Log);
     if (IniInt("Display", "SharpMovies", 1))
         movie::Install(IniInt("Debug", "SaveMovieFrame", 0) ? g_dir.c_str() : nullptr, Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);

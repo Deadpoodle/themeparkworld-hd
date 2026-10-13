@@ -170,6 +170,7 @@ void TapKey(UINT vk) {
 struct UiStep {
     int op;  // 0 move, 1 down, 2 up, 3 wait
     short x, y;
+    int button;  // 0 left, 1 right, 2 middle
 };
 CRITICAL_SECTION g_uiLock;
 std::vector<UiStep> g_ui;
@@ -177,13 +178,27 @@ size_t g_uiNext;
 
 void QueueClick(int cx, int cy) {
     EnterCriticalSection(&g_uiLock);
-    g_ui.push_back({0, (short)cx, (short)cy});
-    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
-    g_ui.push_back({0, (short)cx, (short)cy});
-    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
-    g_ui.push_back({1, (short)cx, (short)cy});
-    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0});
-    g_ui.push_back({2, (short)cx, (short)cy});
+    g_ui.push_back({0, (short)cx, (short)cy, 0});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0, 0});
+    g_ui.push_back({0, (short)cx, (short)cy, 0});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0, 0});
+    g_ui.push_back({1, (short)cx, (short)cy, 0});
+    for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0, 0});
+    g_ui.push_back({2, (short)cx, (short)cy, 0});
+    LeaveCriticalSection(&g_uiLock);
+}
+
+// "mdrag X Y MS": the middle button held at X,Y for about MS (counted in frames
+// at 60 fps), e.g. the camera's turn.
+void QueueMiddleHold(int cx, int cy, int ms) {
+    EnterCriticalSection(&g_uiLock);
+    for (int k = 0; k < 2; ++k) {
+        g_ui.push_back({0, (short)cx, (short)cy, 0});
+        for (int i = 0; i < 3; ++i) g_ui.push_back({3, 0, 0, 0});
+    }
+    g_ui.push_back({1, (short)cx, (short)cy, 2});
+    for (int i = 0; i < ms * 60 / 1000; ++i) g_ui.push_back({3, 0, 0, 0});
+    g_ui.push_back({2, (short)cx, (short)cy, 2});
     LeaveCriticalSection(&g_uiLock);
 }
 
@@ -210,8 +225,8 @@ void RunUiStep() {
     typedef short(__cdecl * MoveFn)(int, int);
     typedef short(__cdecl * ButtonFn)(int, int, int);
     if (st.op == 0) reinterpret_cast<MoveFn>(game::UIMouseMove)(vx, vy);
-    else if (st.op == 1) reinterpret_cast<ButtonFn>(game::UIMouseButtonDown)(0, vx, vy);
-    else reinterpret_cast<ButtonFn>(game::UIMouseButtonUp)(0, vx, vy);
+    else if (st.op == 1) reinterpret_cast<ButtonFn>(game::UIMouseButtonDown)(st.button, vx, vy);
+    else reinterpret_cast<ButtonFn>(game::UIMouseButtonUp)(st.button, vx, vy);
 }
 
 // Alt+F4 as Windows delivers it: WM_SYSKEYDOWN with the context bit (Alt held).
@@ -234,7 +249,7 @@ void Type(const std::string& text) {
 // Script: "3:esc, 6:click 320 40, 8:type Kim, 9:enter, 12:shot". Steps are
 // timed in seconds from start. Keys: esc, space, enter, f1..f12, a single
 // letter or digit, or a virtual-key code (0x..).
-enum class Kind { Key, Shot, Click, Type, AltF4, Hold, Wiggle, Wheel };
+enum class Kind { Key, Shot, Click, Type, AltF4, Hold, Wiggle, Wheel, MiddleHold };
 struct Step {
     DWORD ms;
     Kind kind;
@@ -292,6 +307,8 @@ void ParseScript(const std::string& s) {
             st.x = ms;
         } else if (lower == "altf4") {
             st.kind = Kind::AltF4;
+        } else if (lower.rfind("mdrag ", 0) == 0 && sscanf(lower.c_str() + 6, "%d %d %d", &st.x, &st.y, &st.vk) == 3) {
+            st.kind = Kind::MiddleHold;
         } else if (lower.rfind("click ", 0) == 0 && sscanf(lower.c_str() + 6, "%d %d", &st.x, &st.y) == 2) {
             st.kind = Kind::Click;
         } else if (lower.rfind("type ", 0) == 0) {
@@ -371,6 +388,10 @@ DWORD WINAPI Worker(LPVOID) {
                     PostMessageA(g_hwnd, WM_MOUSEWHEEL, MAKEWPARAM(0, (WORD)(short)s.x), MAKELPARAM(pt.x, pt.y));
                     break;
                 }
+                case Kind::MiddleHold:
+                    g_log("headless: script middle button at %d,%d for %d ms", s.x, s.y, s.vk);
+                    QueueMiddleHold(s.x, s.y, s.vk);
+                    break;
                 case Kind::Wiggle:
                     g_log("headless: script wiggle %d ms", s.x);
                     g_wiggleUntil = GetTickCount() + s.x;

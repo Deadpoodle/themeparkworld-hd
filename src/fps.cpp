@@ -14,6 +14,7 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 
 #include "hook.h"
@@ -109,7 +110,77 @@ void Draw(void* ctx) {
     ((UnlockFn)vt[32])(back, nullptr);
 }
 
+// [Debug] FlashDetect=1: sample the back buffer every frame (a 64x36 grid) and
+// log frames whose average colour jumps from the frames around them, or that
+// are mostly one colour (a cleared, never-drawn frame); save the first three
+// inverted ones. Found the storm menu's lightning: Engine_DrawLightningFlash
+// 0x57ed50 draws one full-screen white quad with blend 0xa1 (INVDESTCOLOR,
+// ZERO), a one-frame negative, by design.
+bool g_detect;
+const char* g_dir = "";
+void Detect(void* ctx) {
+    void* back = *(void**)((char*)ctx + 0x14);
+    if (!back) return;
+    typedef HRESULT(__stdcall * LockFn)(void*, RECT*, void*, DWORD, HANDLE);
+    typedef HRESULT(__stdcall * UnlockFn)(void*, RECT*);
+    void** vt = *(void***)back;
+    unsigned char desc[124] = {};
+    *(DWORD*)desc = sizeof desc;
+    if (FAILED(((LockFn)vt[25])(back, nullptr, desc, 0x1 | 0x10 /* WAIT | READONLY */, nullptr))) return;
+    int sw = *(int*)(desc + 0xc), sh = *(int*)(desc + 8);
+    LONG pitch = *(LONG*)(desc + 0x10);
+    unsigned char* px = *(unsigned char**)(desc + 0x24);
+    DWORD bpp = *(DWORD*)(desc + 0x54);
+    double sum[3] = {};
+    int n = 0, same = 0;
+    unsigned first = 0;
+    for (int gy = 0; gy < 36; ++gy)
+        for (int gx = 0; gx < 64; ++gx) {
+            int x = (gx * 2 + 1) * sw / 128, y = (gy * 2 + 1) * sh / 72;
+            unsigned c;
+            if (bpp == 32) c = ((unsigned*)(px + y * pitch))[x] & 0xffffff;
+            else {
+                unsigned v = ((unsigned short*)(px + y * pitch))[x];
+                c = ((v >> 11) & 31) << 19 | ((v >> 5) & 63) << 10 | (v & 31) << 3;
+            }
+            if (!n) first = c;
+            same += c == first;
+            sum[0] += c >> 16 & 255, sum[1] += c >> 8 & 255, sum[2] += c & 255;
+            ++n;
+        }
+    static double prev[3];
+    static int saved, frame, logged;
+    {
+        double m0 = sum[0] / n, m1 = sum[1] / n, m2 = sum[2] / n;
+        bool inverted = fabs(m0 + prev[0] - 255) < 40 && fabs(m1 + prev[1] - 255) < 40 && fabs(m2 + prev[2] - 255) < 40 &&
+                        fabs(m0 - prev[0]) > 60;
+        if (inverted && frame > 600 && saved < 3 && bpp == 32) {  // keep the frame for a look (and the one after, below)
+            char path[MAX_PATH];
+            snprintf(path, sizeof path, "%sflash%d.tga", g_dir, saved++);
+            if (FILE* f = fopen(path, "wb")) {
+                unsigned char hdr[18] = {0, 0, 2};
+                hdr[12] = (unsigned char)sw, hdr[13] = (unsigned char)(sw >> 8);
+                hdr[14] = (unsigned char)sh, hdr[15] = (unsigned char)(sh >> 8);
+                hdr[16] = 32, hdr[17] = 0x28;
+                fwrite(hdr, 1, 18, f);
+                for (int y = 0; y < sh; ++y) fwrite(px + y * pitch, 4, sw, f);
+                fclose(f);
+            }
+        }
+    }
+    ((UnlockFn)vt[32])(back, nullptr);
+    double m[3] = {sum[0] / n, sum[1] / n, sum[2] / n};
+    double jump = fabs(m[0] - prev[0]) + fabs(m[1] - prev[1]) + fabs(m[2] - prev[2]);
+    if (frame++ > 0 && (jump > 40 || same > n * 9 / 10) && logged < 200) {
+        ++logged;
+        g_log("fps: frame %d colour jump %.0f: mean %.0f,%.0f,%.0f (was %.0f,%.0f,%.0f), %d%% one colour %06x",
+              frame, jump, m[0], m[1], m[2], prev[0], prev[1], prev[2], same * 100 / n, first);
+    }
+    memcpy(prev, m, sizeof m);
+}
+
 int __fastcall h_Flip(void* ctx, void* unused) {
+    if (g_detect) Detect(ctx);
     Draw(ctx);
     return reinterpret_cast<int(__fastcall*)(void*, void*)>(kFlip)(ctx, unused);
 }
@@ -121,8 +192,11 @@ void Toggle() {
     if (g_log) g_log("fps: counter %s", g_show ? "shown" : "hidden");
 }
 
-bool Install(bool show, void (*log)(const char*, ...)) {
+bool Install(bool show, bool detect, const char* dir, void (*log)(const char*, ...)) {
     g_log = log;
+    g_detect = detect;
+    g_dir = dir;
+    if (detect) log("fps: flash detector on (inverted frames are saved as flash<N>.tga)");
     g_show = show;
     LARGE_INTEGER f;
     QueryPerformanceFrequency(&f);

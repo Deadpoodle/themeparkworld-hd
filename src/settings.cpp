@@ -101,6 +101,8 @@ const std::vector<Option>& Options() {
         {L"Sharper UI art", "Display", "SharpUI", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Sharper movies", "Display", "SharpMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Resume after Alt+Tab", "Input", "ResumeOnFocus", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Middle-button turn", "Input", "MaxTurnSpeed", "180",
+         {{"180", L"180 deg/s max"}, {"90", L"90 deg/s max"}, {"360", L"360 deg/s max"}, {"0", L"Original"}}},
         {L"Alt+F4 quits", "Input", "AltF4", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: park music", "Audio", "LevelMusicFix", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: game clock", "Compat", "FixClock", "1", {{"1", L"On"}, {"0", L"Off"}}},
