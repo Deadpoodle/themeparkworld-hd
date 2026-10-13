@@ -47,9 +47,10 @@ Theme Park World HD {version}
 
 A patch for Theme Park World (1999) on Windows 10 and 11: it runs at your
 screen's resolution with all text visible, in a borderless window, with a
-fixed game clock, park music, sharper menu art and movies, and an
-HD Settings page on the main menu. It changes no game files: remove
-wsock32.dll to get the original game back.
+fixed game clock, park music, smooth edges (anti-aliasing), 32-bit textures
+without colour banding, sharper menu art and movies, a limit on the
+middle-button camera turn, and an HD Settings page on the main menu. It
+changes no game files: remove wsock32.dll to get the original game back.
 
 NEEDS
 - Your own copy of Theme Park World, updated to v2.0, with a TP.exe without
@@ -74,6 +75,8 @@ wider than 2048 it picks the largest display mode up to 2048 wide.
 
 KEYS
 - F2: frame counter on/off
+- Middle mouse button: turn the camera (faster further from the centre,
+  up to the limit set on the HD Settings page)
 - Alt+F4: quit
 - Alt+Tab: a paused park carries on when you come back (setting)
 
