@@ -1,6 +1,6 @@
 # Theme Park World HD
 
-A patch that makes **Theme Park World** (Bullfrog, 1999; *Sim Theme Park* in North America) run well on a modern Windows PC: native widescreen resolutions with working text, a frame-rate cap that fixes the game running too fast, and no registry set-up. The game has no released source, so this is a binary patch: a small DLL that the game loads by itself and that changes it in memory. **No game file is modified, and none is included here.**
+A patch that makes **Theme Park World** (Bullfrog, 1999; *Sim Theme Park* in North America) run well on a modern Windows PC: native widescreen resolutions with working text, borderless full screen, and no registry set-up. The game has no released source, so this is a binary patch: a small DLL that the game loads by itself and that changes it in memory. **No game file is modified, and none is included here.**
 
 > **Status: early development (v0.0.1-dev).** The resolution and frame-cap fixes work and are tested. The rest of the plan is below. There's no release build yet.
 
@@ -21,11 +21,14 @@ New Game+ was distilled from [WarBreeds HD](https://github.com/Deadpoodle/warbre
 | Fix | Setting | What it does |
 |---|---|---|
 | **Native resolution** | `[Display] Resolution=auto` | Runs at the desktop's resolution, or any `WxH`, **with all text visible**. The engine already has fonts for big screens. The known hex edit loses all text because the font loader and the font selector choose their size tier differently (the loader from the resolution *setting*, the selector from the real width). The patch keeps them in step. |
-| **Frame cap** | `[Display] MaxFPS=60` | The park simulation runs on a fixed tick, but the camera and some animations move once per frame, so at hundreds of fps the game runs far too fast. The cap is applied where the main loop presents each frame. |
+| **Borderless full screen** | `[Display] Mode=borderless` | The engine's own windowed path in a frameless window covering the screen: no display-mode change, smooth frames, instant Alt+Tab. `fullscreen` (the original exclusive mode) and `window` are options. |
+| **Frame cap (option, off)** | `[Display] MaxFPS=0` | The game has no cap. PCGamingWiki says it runs too fast above 60 fps; that isn't confirmed here yet, so the cap is off. A cap of exactly 60 clashed with the game's timing (about 4 picture updates a second). |
 | **32-bit full screen** | (with a resolution set) | Current drivers refuse the game's 16-bit full-screen modes at modern sizes. The patch asks for 32 bits per pixel instead. |
 | **No registry set-up** | `[Compat] Registry=1`, `Language=auto` | The game quits without a message if a registry value is missing. The patch answers that read itself and **writes nothing** to the registry. It picks the language your copy actually has. Using the US value on a European copy also makes the game quit without a message. |
 | **Software renderer fix** | always | The software renderer's 32-bit clear wrote every other pixel black (a 64-bit fill built from one 32-bit colour). |
-| **Single core** | `[Compat] SingleCPU=1` | Keeps the game's old timer and audio threads on one CPU core. |
+| **Alt+F4** | `[Input] AltF4=1` | Quits the game, which the original ignored. |
+| **Fixes for modern Windows** | always | The intro movie no longer hangs when the game loses focus, and a full-screen present flag that dgVoodoo2 rejected is corrected. The working directory is set to the game folder, so shortcuts work. |
+| **Single core (option, off)** | `[Compat] SingleCPU=0` | Pins the game to one CPU core. Not needed, and with a frame cap it starved the animation. |
 | **Windowed** | `[Display] Windowed=1` | The engine's own windowed mode, which the game never exposed (not yet scaled or borderless). |
 
 ### Known limits
