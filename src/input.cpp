@@ -18,10 +18,16 @@ namespace {
 
 void (*g_log)(const char*, ...);
 WNDPROC g_orig;
+bool g_blockActivate;  // [Debug] BlockActivateApp=1 (experiment)
+bool g_altF4;
 decltype(&CreateWindowExA) o_CreateWindowExA;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_SYSKEYDOWN && wp == VK_F4) {
+    if (g_blockActivate && msg == WM_ACTIVATEAPP) {
+        g_log("input: WM_ACTIVATEAPP(%d) kept from the game (debug)", (int)wp);
+        return 0;
+    }
+    if (g_altF4 && msg == WM_SYSKEYDOWN && wp == VK_F4) {
         g_log("input: Alt+F4, closing");
         PostMessageA(hwnd, WM_CLOSE, 0, 0);
         return 0;
@@ -39,9 +45,11 @@ HWND WINAPI h_CreateWindowExA(DWORD ex, LPCSTR cls, LPCSTR name, DWORD style, in
 
 }  // namespace
 
-void Install(bool altF4, void (*log)(const char*, ...)) {
+void Install(bool altF4, bool blockActivate, void (*log)(const char*, ...)) {
     g_log = log;
-    if (!altF4) return;
+    g_blockActivate = blockActivate;
+    g_altF4 = altF4;
+    if (!altF4 && !blockActivate) return;
     bool ok = hook::Import(game::IatCreateWindowExA, &h_CreateWindowExA, &o_CreateWindowExA);
     log("input: Alt+F4 quits %s", ok ? "on" : "HOOK FAILED");
 }

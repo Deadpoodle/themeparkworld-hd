@@ -13,6 +13,9 @@
 int main(int argc, char** argv) {
     double secs = argc > 1 ? atof(argv[1]) : 5;
     UINT outputIndex = argc > 2 ? atoi(argv[2]) : 0;
+    const char* saveDir = argc > 3 ? argv[3] : nullptr;  // save every 50 ms, 1/4 size, up to 48 BMPs
+    int saved = 0;
+    LARGE_INTEGER lastSave = {};
     ID3D11Device* dev = nullptr;
     ID3D11DeviceContext* ctx = nullptr;
     if (FAILED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &dev,
@@ -83,6 +86,23 @@ int main(int argc, char** argv) {
                         h ^= ((const unsigned*)((const char*)m.pData + y * m.RowPitch))[x];
                         h *= 1099511628211ull;
                     }
+                QueryPerformanceCounter(&t);
+                if (saveDir && saved < 48 && (t.QuadPart - lastSave.QuadPart) * 1000 / f.QuadPart >= 50) {
+                    lastSave = t;
+                    UINT w = d.Width / 4, hgt = d.Height / 4;
+                    char path[MAX_PATH];
+                    snprintf(path, sizeof path, "%s/f%02d.bmp", saveDir, saved++);
+                    if (FILE* fp = fopen(path, "wb")) {
+                        BITMAPFILEHEADER fh = {0x4d42, (DWORD)(54 + w * hgt * 4), 0, 0, 54};
+                        BITMAPINFOHEADER ih = {40, (LONG)w, -(LONG)hgt, 1, 32, BI_RGB, 0, 0, 0, 0, 0};
+                        fwrite(&fh, sizeof fh, 1, fp);
+                        fwrite(&ih, sizeof ih, 1, fp);
+                        for (UINT y = 0; y < hgt; ++y)
+                            for (UINT x = 0; x < w; ++x)
+                                fwrite((const char*)m.pData + (y * 4) * m.RowPitch + (x * 4) * 4, 4, 1, fp);
+                        fclose(fp);
+                    }
+                }
                 ctx->Unmap(staging, 0);
                 if (h != lastHash) ++changed;
                 lastHash = h;

@@ -75,6 +75,7 @@ BOOL WINAPI h_MoveWindow(HWND hwnd, int, int, int w, int h, BOOL repaint) {
     return o_MoveWindow(hwnd, kOff, kOff, w, h, repaint);
 }
 
+bool g_noPresent;
 volatile LONG g_shotsPending;
 int g_shotsTaken;
 
@@ -89,6 +90,7 @@ HWND WINAPI h_GetFocus() {
         reinterpret_cast<void (*)()>(game::SaveScreenshotTGA)();
         g_log("headless: screenshot Scr%05d.tga", ++g_shotsTaken);
     }
+    if (g_noPresent) return nullptr;  // [Debug] NoPresent=1: the present function then draws nothing
     return g_hwnd && !g_visible ? g_hwnd : o_GetFocus();
 }
 
@@ -392,6 +394,7 @@ bool Install(const Options& opt, void (*log)(const char*, ...)) {
     g_shotEvery = opt.screenshotEvery;
     g_quitAfter = opt.quitAfter;
     g_visible = opt.visible;
+    g_noPresent = opt.noPresent;
     InitializeCriticalSection(&g_uiLock);
     ParseScript(opt.script);
     bool ok = hook::Import(game::IatCreateWindowExA, &h_CreateWindowExA, &o_CreateWindowExA);

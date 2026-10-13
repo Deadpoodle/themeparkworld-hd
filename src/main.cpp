@@ -19,6 +19,7 @@
 #include "prof.h"
 #include "registry.h"
 #include "version.h"
+#include "watch.h"
 #include "window.h"
 
 namespace {
@@ -218,7 +219,7 @@ void Init() {
     GetPrivateProfileStringA("Display", "Mode", IniInt("Display", "Windowed", 0) ? "window" : "borderless", mode,
                              sizeof mode, IniPath().c_str());
     if (!window::Install(window::ParseMode(mode), size.w, size.h, headlessMode, Log) && headlessMode) ExitProcess(2);
-    input::Install(IniInt("Input", "AltF4", 1) != 0, Log);
+    input::Install(IniInt("Input", "AltF4", 1) != 0, IniInt("Debug", "BlockActivateApp", 0) != 0, Log);
 
     framecap::Install(IniInt("Display", "MaxFPS", 0),
                       testMode || IniInt("Debug", "LogFPS", 0) || IniInt("Debug", "Profile", 0), Log);
@@ -226,10 +227,14 @@ void Init() {
     ApplyDebugPatches();
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
     if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
+    char watchAddr[32];
+    GetPrivateProfileStringA("Debug", "Watch", "", watchAddr, sizeof watchAddr, IniPath().c_str());
+    if (watchAddr[0]) watch::Install(strtoul(watchAddr, nullptr, 16), Log);
 
     if (testMode) {
         headless::Options opt;
         opt.visible = !headlessMode;
+        opt.noPresent = IniInt("Debug", "NoPresent", 0) != 0;
         opt.screenshotEvery = IniInt("Debug", "ScreenshotEvery", 0);
         opt.quitAfter = IniInt("Debug", "QuitAfter", 0);
         char script[1024];

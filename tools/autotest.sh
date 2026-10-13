@@ -34,6 +34,9 @@ c["Display"]["Mode"] = os.environ.get("MODE", "borderless")
 c["Debug"]["Patch"] = os.environ.get("PATCH", "")
 c["Debug"]["DDTrace"] = os.environ.get("DDTRACE", "0")
 c["Debug"]["Profile"] = os.environ.get("PROFILE", "0")
+c["Debug"]["Watch"] = os.environ.get("WATCH", "")
+c["Debug"]["BlockActivateApp"] = os.environ.get("BLOCKACT", "0")
+c["Debug"]["NoPresent"] = os.environ.get("NOPRESENT", "0")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &

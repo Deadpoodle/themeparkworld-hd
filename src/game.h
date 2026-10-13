@@ -89,6 +89,16 @@ constexpr uintptr_t PresentBltFlags = 0x56427e;
 constexpr uint8_t PresentBltFlagsBytes[] = {0xf7, 0xd2, 0x8b, 0x08, 0x83, 0xe2, 0x01};
 constexpr uint8_t PresentBltWaitBytes[] = {0xba, 0x00, 0x00, 0x00, 0x01, 0x8b, 0x08};
 
+// The game clock accumulates milliseconds since Windows started in doubles:
+// Timer_Accumulate (0x4033a0, the scaled game time at timer+0x18) and its
+// sibling 0x402f40 (raw time at +8). Direct3D leaves the x87 FPU in single
+// precision, so once the total passes ~2^24 ms (4.7 h of uptime) short frames
+// round away and the clock stops. Both are thiscall, no stack arguments, and
+// start with these 6 relocatable bytes: sub esp,8; push esi; mov esi,ecx.
+constexpr uintptr_t TimerAccumulate = 0x4033a0;
+constexpr uintptr_t TimerAccumulateRaw = 0x402f40;
+constexpr uint8_t TimerPrologue[] = {0x83, 0xec, 0x08, 0x56, 0x8b, 0xf1};
+
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.
 constexpr uintptr_t PresentThunk = 0x44e550;  // jmp 0x583730
