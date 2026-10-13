@@ -1,6 +1,8 @@
 // [Debug] DDTrace=1: log DirectDraw/Direct3D set-up calls and their results
 // (surface creation, attachments, device creation), to find which one fails.
 // The COM vtables are shared per interface, so each is patched once.
+// Diagnosis only: with dgVoodoo2 these hooks disturb presentation (picture
+// updates fell from ~97 to ~5 a second on screen), so never leave it on.
 #include "ddtrace.h"
 
 #include <windows.h>
