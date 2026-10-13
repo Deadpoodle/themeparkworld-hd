@@ -71,8 +71,9 @@ const char kDefaultIni[] =
     "; Language the game is told: auto (the one this copy has), or a Windows language ID such as\r\n"
     "; 0x809 (English: data\\Language\\English) or 0x409 (US English: data\\Language\\American)\r\n"
     "Language=auto\r\n"
-    "; 1 = keep the game on one CPU core (old timer and audio-thread code)\r\n"
-    "SingleCPU=1\r\n"
+    "; 1 = keep the game on one CPU core. Leave at 0: together with the frame cap it starved\r\n"
+    "; the game's animation (about 4 fps)\r\n"
+    "SingleCPU=0\r\n"
     "\r\n"
     "[Debug]\r\n"
     "; Switches for the automated tests. Leave them at 0.\r\n"
@@ -199,7 +200,7 @@ void Init() {
     }
 
     if (IniInt("Compat", "Registry", 1)) registry::Install(GameLanguage(), Log);
-    if (IniInt("Compat", "SingleCPU", 1)) PinToOneCpu();
+    if (IniInt("Compat", "SingleCPU", 0)) PinToOneCpu();
 
     compat::Install(Log);
     display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted

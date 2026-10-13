@@ -2,7 +2,7 @@
 # Build, install into testrun (the automated-test copy, always hidden) and run it
 # headless. Never touches testgame (the player's copy).
 # Usage: autotest.sh [seconds] [screenshot-every] [script]   e.g. autotest.sh 40 0 "4:esc,8:esc,12:shot"
-#        RES=1920x1080 MAXFPS=60 autotest.sh   [Display] Resolution and MaxFPS (defaults auto, 60)
+#        RES=1920x1080 MAXFPS=60 MODE=window autotest.sh   [Display] Resolution, MaxFPS, Mode (defaults auto, 60, borderless)
 #        ARGS=/bwcursor autotest.sh    game command line
 #        ONSCREEN=1 autotest.sh          on-screen test (full screen; only with the player's OK)
 #        TESTDIR=testrun-x autotest.sh   another hidden test copy, so runs can go side by side
@@ -30,6 +30,7 @@ c["Debug"]["Script"] = script
 if "Display" not in c: c["Display"] = {}
 c["Display"]["Resolution"] = os.environ.get("RES", "auto")
 c["Display"]["MaxFPS"] = os.environ.get("MAXFPS", "60")
+c["Display"]["Mode"] = os.environ.get("MODE", "borderless")
 c["Debug"]["Patch"] = os.environ.get("PATCH", "")
 c["Debug"]["DDTrace"] = os.environ.get("DDTRACE", "0")
 c["Debug"]["Profile"] = os.environ.get("PROFILE", "0")
