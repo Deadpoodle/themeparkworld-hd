@@ -11,6 +11,7 @@
 #include "compat.h"
 #include "ddtrace.h"
 #include "display.h"
+#include "fps.h"
 #include "framecap.h"
 #include "game.h"
 #include "headless.h"
@@ -68,6 +69,8 @@ const char kDefaultIni[] =
     "; Frame-rate cap, 0 = none. The camera turns and scrolls a fixed step per frame, so above\r\n"
     "; 60 (the vsync rate the game was made for) it moves too fast\r\n"
     "MaxFPS=60\r\n"
+    "; 1 = show a frame counter in the top-left corner (F2 toggles it while playing)\r\n"
+    "ShowFps=0\r\n"
     "\r\n"
     "[Input]\r\n"
     "; 1 = Alt+F4 quits the game (the original ignored it)\r\n"
@@ -249,6 +252,7 @@ void Init() {
 
     ApplyDebugPatches();
     if (IniInt("Display", "SettingsPage", 1)) settings::Install(IniPath(), Log);
+    fps::Install(IniInt("Display", "ShowFps", 0) != 0, Log);
     if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
     if (IniInt("Debug", "Profile", 0)) prof::Install(Log);
     char watchAddr[32];

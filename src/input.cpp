@@ -10,6 +10,7 @@
 
 #include <cstring>
 
+#include "fps.h"
 #include "game.h"
 #include "hook.h"
 
@@ -46,6 +47,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         g_pausedByFocus = false;
         return r;
     }
+    if (msg == WM_KEYDOWN && wp == VK_F2 && !(lp & (1 << 30))) fps::Toggle();  // no game keybind uses F2
     if (g_altF4 && msg == WM_SYSKEYDOWN && wp == VK_F4) {
         g_log("input: Alt+F4, closing");
         PostMessageA(hwnd, WM_CLOSE, 0, 0);
