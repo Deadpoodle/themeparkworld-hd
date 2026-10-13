@@ -99,6 +99,7 @@ const std::vector<Option>& Options() {
          {{"60", L"60"}, {"30", L"30"}, {"120", L"120"}, {"144", L"144"}, {"0", L"Off"}}},
         {L"Resume after Alt+Tab", "Input", "ResumeOnFocus", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Alt+F4 quits", "Input", "AltF4", "1", {{"1", L"On"}, {"0", L"Off"}}},
+        {L"Fix: park music", "Audio", "LevelMusicFix", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: game clock", "Compat", "FixClock", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: intro movie hang", "Compat", "FixMovies", "1", {{"1", L"On"}, {"0", L"Off"}}},
         {L"Fix: full-screen present", "Compat", "FixPresent", "1", {{"1", L"On"}, {"0", L"Off"}}},

@@ -16,6 +16,7 @@
 #include "headless.h"
 #include "hook.h"
 #include "input.h"
+#include "music.h"
 #include "prof.h"
 #include "registry.h"
 #include "settings.h"
@@ -74,6 +75,10 @@ const char kDefaultIni[] =
     "; 1 = a park paused by switching away (Alt+Tab) carries on when you come back; 0 = it stays\r\n"
     "; paused until you press P, as in the original\r\n"
     "ResumeOnFocus=1\r\n"
+    "\r\n"
+    "[Audio]\r\n"
+    "; 1 = the park music plays (a fix after TPW Patcher by TheAussie; skipped if TPW Patcher is applied)\r\n"
+    "LevelMusicFix=1\r\n"
     "\r\n"
     "[Compat]\r\n"
     "; 1 = answer the game's registry read (its language) itself, so it needs no registry keys\r\n"
@@ -221,6 +226,7 @@ void Init() {
     fixes.textures32 = IniInt("Display", "Textures32", 0) != 0;  // off: corrupts every texture (tested)
     fixes.textureMemoryX8 = IniInt("Compat", "TextureMemoryX8", 1) != 0;
     compat::Install(fixes, Log);
+    if (IniInt("Audio", "LevelMusicFix", 1)) music::Install(Log);
     display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
     display::DetectWrapper(g_dir.c_str(), Log);
 
