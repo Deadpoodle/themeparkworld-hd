@@ -4,6 +4,7 @@
 # Usage: autotest.sh [seconds] [screenshot-every] [script]   e.g. autotest.sh 40 0 "4:esc,8:esc,12:shot"
 #        RES=1920x1080 MAXFPS=60 autotest.sh   [Display] Resolution and MaxFPS (defaults auto, 60)
 #        ARGS=/bwcursor autotest.sh    game command line
+#        ONSCREEN=1 autotest.sh          on-screen test (full screen; only with the player's OK)
 #        TESTDIR=testrun-x autotest.sh   another hidden test copy, so runs can go side by side
 set -e
 cd "$(dirname "$0")/.."
@@ -22,7 +23,7 @@ c = configparser.ConfigParser(comment_prefixes=(";",), inline_comment_prefixes=N
 c.optionxform = str
 c.read(p)
 if "Debug" not in c: c["Debug"] = {}
-c["Debug"]["Headless"] = "1"
+c["Debug"]["Headless"] = os.environ.get("ONSCREEN") and "2" or "1"
 c["Debug"]["ScreenshotEvery"] = str(shot)
 c["Debug"]["QuitAfter"] = str(max(secs - 18, 5))
 c["Debug"]["Script"] = script
@@ -30,6 +31,7 @@ if "Display" not in c: c["Display"] = {}
 c["Display"]["Resolution"] = os.environ.get("RES", "auto")
 c["Display"]["MaxFPS"] = os.environ.get("MAXFPS", "60")
 c["Debug"]["Patch"] = os.environ.get("PATCH", "")
+c["Debug"]["DDTrace"] = os.environ.get("DDTRACE", "0")
 with open(p, "w", newline="\r\n") as f: c.write(f)
 EOF
 python -P tools/watchvis.py "$SECS" "$T" > build/vis.txt &

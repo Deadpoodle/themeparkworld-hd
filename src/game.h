@@ -11,6 +11,7 @@ constexpr uintptr_t IatRegCloseKey = 0x6fd000;
 constexpr uintptr_t IatRegOpenKeyA = 0x6fd004;
 constexpr uintptr_t IatRegQueryValueExA = 0x6fd008;
 constexpr uintptr_t IatRegCreateKeyExA = 0x6fd00c;
+constexpr uintptr_t IatDirectDrawCreate = 0x6fd018;
 constexpr uintptr_t IatCreateMutexA = 0x6fd134;
 constexpr uintptr_t IatMoveWindow = 0x6fd31c;
 constexpr uintptr_t IatGetAsyncKeyState = 0x6fd320;
@@ -29,6 +30,14 @@ constexpr uintptr_t IatCreateWindowExA = 0x6fd398;
 constexpr uintptr_t DisplayFlagsInit = 0x449e1c;
 constexpr uint8_t DisplayFlagsInitBytes[] = {0xc7, 0x05, 0x8c, 0x1a, 0x7a, 0x00, 0x15, 0x0e, 0x0c, 0x00};
 constexpr uintptr_t DisplayFlagsInitLowByte = DisplayFlagsInit + 6;  // 0x15 -> 0x14 = windowed
+// Bit 0x200000 = 32-bpp full screen (the default is 16 bpp, which current
+// drivers don't offer at most sizes: SetDisplayMode fails, E_NOTIMPL).
+constexpr uintptr_t DisplayFlagsInitByte2 = DisplayFlagsInit + 8;  // 0x0c -> 0x2c
+// The detail presets (low/med/high.sam) all say RENDER32 0, applied at
+// 0x44db4f as `and eax, 0xffdfffff`, which clears the bit again.
+constexpr uintptr_t Render32Off = 0x44db4f;
+constexpr uint8_t Render32OffBytes[] = {0x25, 0xff, 0xff, 0xdf, 0xff};  // and eax, 0xffdfffff
+constexpr uint8_t Render32OnBytes[] = {0x0d, 0x00, 0x00, 0x20, 0x00};   // or eax, 0x200000
 
 // Font_SelectResolutionTier (thiscall(width), ret 4): used to recognise the exe.
 constexpr uintptr_t FontSelectTier = 0x41a5a0;
@@ -50,6 +59,14 @@ constexpr uintptr_t VideoInitResolution = 0x449ec0;
 constexpr uintptr_t Res7WidthImm = 0x44a0ed + 6;   // mov [0x7a1968], 0x800
 constexpr uintptr_t Res7HeightImm = 0x44a0f7 + 6;  // mov [0x7a1930], 0x600
 constexpr uintptr_t ResolutionSetting = 0x7858ec;  // Resolution.sam RESOLUTION (0 = options screen)
+
+// Software renderer frame copy + clear, 32 bpp (0x6787f0 is the 16-bpp one):
+// cdecl, 10 dword args; clears with `movq mm4, [ebp+0x2c]`, i.e. the colour
+// (arg 9) plus whatever dword follows it on the stack, so at 32 bpp every
+// second pixel gets that junk (black): the stripes seen above 2048 wide,
+// where Direct3D fails and the game falls back to this renderer.
+constexpr uintptr_t CallSoftCopyClear32 = 0x573dbd;
+constexpr uintptr_t SoftCopyClear32 = 0x678c20;
 
 // Present: BDEngine_Present 0x583730 (void, returns eax; returns at once when
 // the window lacks focus). The main loop reaches it through this thunk.

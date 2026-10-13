@@ -30,6 +30,7 @@ namespace {
 
 void (*g_log)(const char*, ...);
 HWND g_hwnd;
+bool g_visible;  // Headless=2: on-screen test, the window is left alone
 constexpr int kOff = -32000;
 
 decltype(&CreateWindowExA) o_CreateWindowExA;
@@ -42,8 +43,14 @@ decltype(&MessageBoxA) o_MessageBoxA;
 decltype(&MessageBoxW) o_MessageBoxW;
 decltype(&CreateMutexA) o_CreateMutexA;
 
-HWND WINAPI h_CreateWindowExA(DWORD ex, LPCSTR cls, LPCSTR name, DWORD style, int, int, int w, int h, HWND parent,
-                              HMENU menu, HINSTANCE inst, LPVOID param) {
+HWND WINAPI h_CreateWindowExA(DWORD ex, LPCSTR cls, LPCSTR name, DWORD style, int x, int y, int w, int h,
+                              HWND parent, HMENU menu, HINSTANCE inst, LPVOID param) {
+    if (g_visible) {
+        HWND hwnd = o_CreateWindowExA(ex, cls, name, style, x, y, w, h, parent, menu, inst, param);
+        if (hwnd && !parent && HIWORD(cls) && strcmp(cls, game::WindowClass) == 0) g_hwnd = hwnd;
+        g_log("headless (on screen): window %p %dx%d style %#lx", (void*)hwnd, w, h, (unsigned long)style);
+        return hwnd;
+    }
     if ((style & game::FullscreenStyle) == game::FullscreenStyle) {
         g_log("headless: the game asked for a full-screen window (style %#lx); quitting so the display mode "
               "is never changed", (unsigned long)style);
@@ -79,7 +86,7 @@ HWND WINAPI h_GetFocus() {
         reinterpret_cast<void (*)()>(game::SaveScreenshotTGA)();
         g_log("headless: screenshot Scr%05d.tga", ++g_shotsTaken);
     }
-    return g_hwnd ? g_hwnd : o_GetFocus();
+    return g_hwnd && !g_visible ? g_hwnd : o_GetFocus();
 }
 
 // The player's real keyboard must not reach a test copy: the game reads key and
@@ -270,17 +277,20 @@ bool Install(const Options& opt, void (*log)(const char*, ...)) {
     g_log = log;
     g_shotEvery = opt.screenshotEvery;
     g_quitAfter = opt.quitAfter;
+    g_visible = opt.visible;
     ParseScript(opt.script);
     bool ok = hook::Import(game::IatCreateWindowExA, &h_CreateWindowExA, &o_CreateWindowExA);
     decltype(&GetAsyncKeyState) unusedA;
     decltype(&GetKeyState) unusedK;
     ok &= hook::Import(game::IatGetAsyncKeyState, &h_GetAsyncKeyState, &unusedA);
     ok &= hook::Import(game::IatGetKeyState, &h_GetKeyState, &unusedK);
-    ok &= hook::Import(game::IatShowWindow, &h_ShowWindow, &o_ShowWindow);
-    ok &= hook::Import(game::IatSetWindowPos, &h_SetWindowPos, &o_SetWindowPos);
-    ok &= hook::Import(game::IatMoveWindow, &h_MoveWindow, &o_MoveWindow);
+    if (!g_visible) {
+        ok &= hook::Import(game::IatShowWindow, &h_ShowWindow, &o_ShowWindow);
+        ok &= hook::Import(game::IatSetWindowPos, &h_SetWindowPos, &o_SetWindowPos);
+        ok &= hook::Import(game::IatMoveWindow, &h_MoveWindow, &o_MoveWindow);
+        ok &= hook::Import(game::IatGetForegroundWindow, &h_GetForegroundWindow, &o_GetForegroundWindow);
+    }
     ok &= hook::Import(game::IatGetFocus, &h_GetFocus, &o_GetFocus);
-    ok &= hook::Import(game::IatGetForegroundWindow, &h_GetForegroundWindow, &o_GetForegroundWindow);
     ok &= hook::Import(game::IatMessageBoxA, &h_MessageBoxA, &o_MessageBoxA);
     ok &= hook::Import(game::IatMessageBoxW, &h_MessageBoxW, &o_MessageBoxW);
     ok &= hook::Import(game::IatCreateMutexA, &h_CreateMutexA, &o_CreateMutexA);

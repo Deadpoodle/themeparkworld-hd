@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "ddtrace.h"
 #include "display.h"
 #include "framecap.h"
 #include "game.h"
@@ -49,8 +50,9 @@ const char kDefaultIni[] =
     "; Theme Park World HD settings. Delete this file to get the defaults back.\r\n"
     "\r\n"
     "[Display]\r\n"
-    "; Game resolution: auto (the desktop's), WxH (e.g. 1920x1080), or original (the game's own\r\n"
-    "; 640x480, or what data\\Resolution.sam says)\r\n"
+    "; Game resolution: auto (the desktop's; on screens wider than 2048 the largest mode up to 2048\r\n"
+    "; wide, because the game's Direct3D stops there), WxH (e.g. 1920x1080; wider than 2048 uses\r\n"
+    "; the slower software renderer), or original (640x480, or what data\\Resolution.sam says)\r\n"
     "Resolution=auto\r\n"
     "; 1 = run in a window instead of full screen (the game's own window, not yet scaled)\r\n"
     "Windowed=0\r\n"
@@ -173,7 +175,9 @@ void Init() {
     Log("Theme Park World HD %s", TPWHD_VERSION);
     WriteDefaultIni();
 
-    bool headlessMode = IniInt("Debug", "Headless", 0) != 0;
+    int headlessSetting = IniInt("Debug", "Headless", 0);  // 1 hidden, 2 on screen (asks first)
+    bool headlessMode = headlessSetting == 1;
+    bool testMode = headlessSetting != 0;
     if (!Recognised()) {
         Log("unrecognised TP.exe; no patches applied");
         if (headlessMode) ExitProcess(2);  // a test must never fall back to full screen
@@ -197,15 +201,18 @@ void Init() {
     char res[64];
     GetPrivateProfileStringA("Display", "Resolution", "auto", res, sizeof res, IniPath().c_str());
     display::Size size;
+    display::InstallSoftwareClearFix(Log);  // a bug fix in every mode: never wanted
     if (display::Parse(res, &size)) display::Install(size, Log);
     else Log("display: Resolution=%s not understood; original kept", res);
 
-    framecap::Install(IniInt("Display", "MaxFPS", 60), headlessMode || IniInt("Debug", "LogFPS", 0), Log);
+    framecap::Install(IniInt("Display", "MaxFPS", 60), testMode || IniInt("Debug", "LogFPS", 0), Log);
 
     ApplyDebugPatches();
+    if (IniInt("Debug", "DDTrace", 0)) ddtrace::Install(Log);
 
-    if (headlessMode) {
+    if (testMode) {
         headless::Options opt;
+        opt.visible = !headlessMode;
         opt.screenshotEvery = IniInt("Debug", "ScreenshotEvery", 0);
         opt.quitAfter = IniInt("Debug", "QuitAfter", 0);
         char script[1024];
