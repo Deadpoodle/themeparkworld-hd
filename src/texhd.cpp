@@ -263,6 +263,14 @@ void* MakeRaw(std::vector<unsigned>& px, int w, int h, unsigned alphaFlags) {
 }
 
 void* __cdecl h_LoadImage(const char* path, unsigned* w, unsigned* h, unsigned flags, int lut, int bpp) {
+    static bool formatsLogged;
+    if (!formatsLogged) {  // the texture formats the game matched (565, 1555, 4444, 8888)
+        formatsLogged = true;
+        const unsigned* pf = (const unsigned*)0x8bd558;
+        for (int i = 0; i < 4; ++i, pf += 8)
+            g_log("texhd: texture format %d: flags %#x bits %u masks r %#x g %#x b %#x a %#x%s", i, pf[1], pf[3], pf[4],
+                  pf[5], pf[6], pf[7], i == *(int*)kTexFormat ? " (in use)" : "");
+    }
     void* r = reinterpret_cast<LoadImageFn>(kLoadImage)(path, w, h, flags, lut, bpp);
     unsigned loadFlags = *(unsigned*)kLoadFlags;
     void* part = *(void**)kWaveletPart;

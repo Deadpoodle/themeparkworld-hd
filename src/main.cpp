@@ -77,6 +77,8 @@ const char kDefaultIni[] =
     "; With dgVoodoo2 (DDraw.dll in the game folder): edge smoothing (off, 2x, 4x, 8x) and\r\n"
     "; texture filtering (0 = as the game asks, or anisotropic 2..16), written into dgVoodoo.conf\r\n"
     "Antialiasing=4x\r\n"
+    "; Texture colour: 1 = 32 bits per pixel, 0 = 16 (4 bits per channel, as the original: banding)\r\n"
+    "Textures32=1\r\n"
     "Anisotropic=16\r\n"
     "; 1 = show a frame counter in the top-left corner (F2 toggles it while playing)\r\n"
     "ShowFps=0\r\n"
@@ -248,7 +250,8 @@ void Init() {
     fixes.movies = IniInt("Compat", "FixMovies", 1) != 0;
     fixes.present = IniInt("Compat", "FixPresent", 1) != 0;
     fixes.signText = IniInt("Compat", "FixSignText", 1) != 0;
-    fixes.textures32 = IniInt("Display", "Textures32", 0) != 0;  // off: corrupts every texture (tested)
+    fixes.textureFormats = IniInt("Compat", "FixTextureFormats", 1) != 0;
+    fixes.textures32 = IniInt("Display", "Textures32", 1) != 0;
     fixes.textureMemoryX8 = IniInt("Compat", "TextureMemoryX8", 1) != 0;
     compat::Install(fixes, Log);
     if (IniInt("Audio", "LevelMusicFix", 1)) music::Install(Log);

@@ -583,3 +583,4 @@
 0x0057dc70	Engine_RequestLightningFlash	H: sets engine+4 = 1; called per strike by the storm front-end scene (0x5e1100 area)	function
 0x0042a7ff	Camera_MiddleTurnStep	H: (cursor x - 1024) * 2^-11 rad added to yaw 0x790a38 per msg 0x1e (twice a frame); patched by camera.cpp	code
 0x008bcbac	g_Engine3D	H: engine object; +4 = lightning flash requested (Engine_RequestLightningFlash)	data
+0x00572f70	D3D_MatchTextureFormat	H: stdcall(ctx, DDPIXELFORMAT*, 0): copies pf into 0x8bd558[i] when the 4 mask bit counts match table 0x7015f8 (565,1555,4444,8888); ignores flags, so dgVoodoo A8L8 replaced 8888. Wrapped at 0x57306c (RGB only)	function

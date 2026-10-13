@@ -46,6 +46,12 @@ HRESULT WINAPI h_ScriptStringOut(void* ssa, int x, int y, UINT opts, const RECT*
     return o_ScriptStringOut(ssa, x, y, opts, clip, selMin, selMax, disabled);
 }
 
+typedef int(__stdcall* MatchFormatFn)(void*, const unsigned*, int);
+int __stdcall h_MatchTextureFormat(void* ctx, const unsigned* pf, int z) {
+    if (!(pf[1] & 0x40)) return 1;  // not DDPF_RGB (luminance, bump, FourCC): keep enumerating
+    return reinterpret_cast<MatchFormatFn>(0x572f70)(ctx, pf, z);
+}
+
 }  // namespace
 
 void Install(const Options& opt, void (*log)(const char*, ...)) {
@@ -83,6 +89,17 @@ void Install(const Options& opt, void (*log)(const char*, ...)) {
     if (opt.signText)
         log("compat: sign text through current Uniscribe %s",
             hook::Import(game::IatScriptStringOut, &h_ScriptStringOut, &o_ScriptStringOut) ? "on" : "hook FAILED");
+
+    // Texture formats: the matcher (0x572f70, stdcall(ctx, DDPIXELFORMAT*, 0),
+    // called from the EnumTextureFormats callback at 0x57306c) compares only
+    // the bit counts of the four masks. dgVoodoo2 lists A8L8 (LUMINANCE |
+    // ALPHAPIXELS) with 0xff in all three colour masks, after ARGB8888: it
+    // counts as 8,8,8,8 and replaces it, so 32-bit textures were created as
+    // 16-bit grey surfaces. Only RGB formats are offered to the matcher.
+    if (opt.textureFormats) {
+        bool ok = hook::Redirect(0x57306c, 0xe8, 0x572f70, (void*)&h_MatchTextureFormat);
+        log("compat: texture formats matched only against RGB formats %s", ok ? "on" : "patch FAILED");
+    }
 
     if (opt.textures32)
         log("compat: 32-bit textures %s",

@@ -100,6 +100,7 @@ const std::vector<Option>& Options() {
          {{"60", L"60"}, {"30", L"30"}, {"120", L"120"}, {"144", L"144"}, {"0", L"Off"}}},
         {L"Anti-aliasing (dgVoodoo2)", "Display", "Antialiasing", "4x",
          {{"4x", L"4x"}, {"8x", L"8x"}, {"off", L"Off"}, {"2x", L"2x"}}},
+        {L"Texture colour", "Display", "Textures32", "1", {{"1", L"32-bit"}, {"0", L"16-bit (original)"}}},
         {L"Texture filtering (dgVoodoo2)", "Display", "Anisotropic", "16",
          {{"16", L"Anisotropic 16x"}, {"8", L"Anisotropic 8x"}, {"4", L"Anisotropic 4x"}, {"0", L"As the game asks"}}},
         {L"FPS counter (F2)", "Display", "ShowFps", "0", {{"0", L"Off"}, {"1", L"On"}}},
@@ -117,6 +118,7 @@ const std::vector<Option>& Options() {
         {L"Full-screen present", "Compat", "FixPresent", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
         {L"Sign text", "Compat", "FixSignText", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
         {L"Texture memory x8", "Compat", "TextureMemoryX8", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
+        {L"32-bit texture format", "Compat", "FixTextureFormats", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
         {L"Focus at start-up", "Compat", "FixModeList", "1", {{"1", L"On"}, {"0", L"Off"}}, 1},
     };
     return o;
